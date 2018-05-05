@@ -129,7 +129,7 @@ func TestAddRemoveExistTriples(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, len(trpls); got != want {
@@ -157,7 +157,7 @@ func TestAddRemoveExistTriples(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 0; got != want {
@@ -233,7 +233,7 @@ func TestQueryMethods(t *testing.T) {
 			}
 		}()
 		cnt = 0
-		for _ = range objs {
+		for range objs {
 			cnt++
 		}
 		if cnt < 1 {
@@ -249,7 +249,7 @@ func TestQueryMethods(t *testing.T) {
 			}
 		}()
 		cnt = 0
-		for _ = range subjs {
+		for range subjs {
 			cnt++
 		}
 		if cnt < 1 {
@@ -265,7 +265,7 @@ func TestQueryMethods(t *testing.T) {
 			}
 		}()
 		cnt = 0
-		for _ = range prds {
+		for range prds {
 			cnt++
 		}
 		if cnt < 1 {
@@ -281,7 +281,7 @@ func TestQueryMethods(t *testing.T) {
 			}
 		}()
 		cnt = 0
-		for _ = range prds {
+		for range prds {
 			cnt++
 		}
 		if cnt < 1 {
@@ -297,7 +297,7 @@ func TestQueryMethods(t *testing.T) {
 			}
 		}()
 		cnt = 0
-		for _ = range prds {
+		for range prds {
 			cnt++
 		}
 		if cnt < 1 {
@@ -313,7 +313,7 @@ func TestQueryMethods(t *testing.T) {
 			}
 		}()
 		cnt = 0
-		for _ = range ctrpls {
+		for range ctrpls {
 			cnt++
 		}
 		if cnt < 1 {
@@ -329,7 +329,7 @@ func TestQueryMethods(t *testing.T) {
 			}
 		}()
 		cnt = 0
-		for _ = range ctrpls {
+		for range ctrpls {
 			cnt++
 		}
 		if cnt < 1 {
@@ -345,7 +345,7 @@ func TestQueryMethods(t *testing.T) {
 			}
 		}()
 		cnt = 0
-		for _ = range ctrpls {
+		for range ctrpls {
 			cnt++
 		}
 		if cnt < 1 {
@@ -361,7 +361,7 @@ func TestQueryMethods(t *testing.T) {
 			}
 		}()
 		cnt = 0
-		for _ = range ctrpls {
+		for range ctrpls {
 			cnt++
 		}
 		if cnt < 1 {
@@ -396,7 +396,7 @@ func TestTriplesForObject(t *testing.T) {
 			}
 		}()
 		cnt := 0
-		for _ = range trps {
+		for range trps {
 			cnt++
 		}
 		if cnt < 1 {

@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	// drivers contains the registed drivers available for this command line tool.
+	// drivers contains the registered drivers available for this command line tool.
 	registeredDrivers map[string]common.StoreGenerator
 
 	// Available flags.
@@ -70,7 +70,7 @@ func registerDrivers() {
 	}
 }
 
-// Advanced line editing.
+// NewAdvancedReadLiner line editing.
 func NewAdvancedReadLiner() repl.ReadLiner {
 	return func(done chan bool) <-chan string {
 		line, c := liner.NewLiner(), make(chan string)

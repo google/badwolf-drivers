@@ -36,7 +36,7 @@ type driver struct {
 	lb   literal.Builder
 }
 
-// graphBucket contians the name of the bucket containing the graphs.
+// graphBucket contains the name of the bucket containing the graphs.
 const graphBucket = "GRAPHS"
 
 // New create a new BadWolf driver using BoltDB as a storage driver.
