@@ -24,13 +24,13 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	"github.com/google/badwolf-drivers/bwbolt"
 	"github.com/google/badwolf/storage"
 	"github.com/google/badwolf/storage/memory"
 	"github.com/google/badwolf/tools/vcli/bw/common"
 	"github.com/google/badwolf/tools/vcli/bw/repl"
 	"github.com/google/badwolf/triple/literal"
 	"github.com/peterh/liner"
-	"github.com/xllora/bwdrivers/bwbolt"
 )
 
 var (
