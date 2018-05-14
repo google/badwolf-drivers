@@ -29,10 +29,11 @@ following commands:
 ```
 $ cd /to/some/new/folder
 $ export GOPATH=$PWD
+$ go get github.com/boltdb/bolt
+$ go get -u cloud.google.com/go/bigtable
+$ go get github.com/google/badwolf/...
 $ go get github.com/peterh/liner
 $ go get github.com/pborman/uuid
-$ go get github.com/google/badwolf/...
-$ go get github.com/google/badwolf-drivers/...
 ```
 
 These commands should not output anything unless something fails. You can 
