@@ -22,7 +22,7 @@ alternatives.
 
 ## Bulding the command line tool
 
-Assumming you have a fully working installation of GO, you just need to get 
+Assuming you have a fully working installation of GO, you just need to get 
 the required packages and build the tool. You can achieve this by typing the 
 following commands:
 
@@ -30,6 +30,7 @@ following commands:
 $ cd /to/some/new/folder
 $ export GOPATH=$PWD
 $ go get github.com/peterh/liner
+$ go get github.com/pborman/uuid
 $ go get github.com/google/badwolf/...
 $ go get github.com/google/badwolf-drivers/...
 ```

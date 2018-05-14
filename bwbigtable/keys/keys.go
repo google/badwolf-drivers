@@ -38,7 +38,7 @@ const (
 	temporalTripleColumnFamily  = "temporal_triple"
 )
 
-var smallerTimestamp = time.Unix(0, 0)
+var smallerTimestamp = time.Unix(0, 1)
 
 // Indexer contains the mapping to a given row+column combination.
 type Indexer struct {
