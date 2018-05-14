@@ -53,7 +53,7 @@ func mustParse(t *testing.T, raw string) *triple.Triple {
 	return tpl
 }
 
-func TestForGraph(t *testing.T) {
+func TestForTriple(t *testing.T) {
 	table := []*struct {
 		tpl  *triple.Triple
 		want []*Indexer
@@ -172,5 +172,22 @@ func TestForGraph(t *testing.T) {
 			}
 			t.Error(strings.Join(msg, ""))
 		}
+	}
+}
+
+func TestGraphRowPrefix(t *testing.T) {
+	if got, want := GraphRowPrefix(), graphRowPrefix; got != want {
+		fmt.Errorf("GraphRowPrefix; got %q, want %q", got, want)
+	}
+}
+
+func TestForGraph(t *testing.T) {
+	got := ForGraph(graph)
+	want := &Indexer{
+		Row:    "graph:" + graph,
+		Column: graphMetadataColumn,
+	}
+	if !reflect.DeepEqual(got, want) {
+		fmt.Errorf("ForGraph; got %q, want %q", got, want)
 	}
 }
