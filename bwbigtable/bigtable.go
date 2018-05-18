@@ -20,8 +20,8 @@ package bwbigtable
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"cloud.google.com/go/bigtable"
@@ -31,11 +31,12 @@ import (
 	"github.com/google/badwolf/triple/literal"
 	"github.com/google/badwolf/triple/node"
 	"github.com/google/badwolf/triple/predicate"
+
+	"github.com/pborman/uuid"
 )
 
 const (
-	version                = "0.1.0-dev"
-	graphMetadataTimestamp = 1
+	version = "0.1.0-dev"
 )
 
 // store implements the storage.Store interface using Bigtable.
@@ -102,7 +103,7 @@ func (s *store) NewGraph(ctx context.Context, id string) (storage.Graph, error) 
 	}
 
 	k := keys.ForGraph(id)
-	if err := s.persistBytes(ctx, k.Row, k.Column, graphMetadataTimestamp, []byte(id)); err != nil {
+	if err := s.persistBytes(ctx, k.Row, k.Column, k.Timestamp, []byte(id)); err != nil {
 		return nil, fmt.Errorf("persistMessasge failed: %v", err)
 	}
 	return &graph{
@@ -138,14 +139,65 @@ func (s *store) Graph(ctx context.Context, id string) (storage.Graph, error) {
 // DeleteGraph deletes an existing graph. Deleting a non existing graph
 // should return an error.
 func (s *store) DeleteGraph(ctx context.Context, id string) error {
-	return errors.New("not implemented")
+	g, err := s.Graph(ctx, id)
+	if err != nil {
+		return err
+	}
+	// Remove all triples for the graph.
+	tc := make(chan *triple.Triple, s.bqlChannelSize)
+	go func() {
+		if err := g.Triples(ctx, storage.DefaultLookup, tc); err != nil {
+			return
+		}
+	}()
+	var (
+		errDelete error
+		cnt       = s.bulkTripleOpSize
+		trpls     []*triple.Triple
+	)
+	for t := range tc {
+		if errDelete != nil {
+			// Need to drain the channel to release resources.
+			continue
+		}
+
+		if cnt == 0 {
+			if err := g.RemoveTriples(ctx, trpls); err != nil && errDelete == nil {
+				errDelete = err
+			}
+			trpls = []*triple.Triple{}
+		}
+		trpls = append(trpls, t)
+	}
+	if errDelete != nil {
+		return errDelete
+	}
+	if err := g.RemoveTriples(ctx, trpls); err != nil {
+		return err
+	}
+	// Remove the graph.
+	k := keys.ForGraph(id)
+	return s.deleteCellRange(ctx, k.Row, k.Column, k.Timestamp, k.Timestamp)
+}
+
+// deleteCellRange delete a cell on the big table.
+func (s *store) deleteCellRange(ctx context.Context, row, col string, initialTS, finalTS int64) error {
+	family, column := parseColumn(col)
+	btm := bigtable.NewMutation()
+	btm.DeleteTimestampRange(family, column, bigtable.Timestamp(initialTS), bigtable.Timestamp(finalTS))
+	if err := s.table.Apply(ctx, row, btm); err != nil {
+		return fmt.Errorf(
+			"m.t.Apply(_, %s, %s, %d, %d): got (_, %v), wanted (_, nil)",
+			row, col, initialTS, finalTS, err)
+	}
+	return nil
 }
 
 // GraphNames returns the current available graph names in the store.
 func (s *store) GraphNames(ctx context.Context, names chan<- string) error {
 	defer close(names)
 
-	rr := bigtable.PrefixRange(keys.GraphRowPrefix() + ":")
+	rr := bigtable.PrefixRange(keys.GraphRowPrefix())
 	return s.table.ReadRows(ctx, rr, func(row bigtable.Row) bool {
 		for _, entries := range row {
 			for _, cell := range entries {
@@ -169,7 +221,8 @@ func (s *store) exist(ctx context.Context, id string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("ReadRow failed: %v", err)
 	}
-	for _, ri := range row[keys.GraphRowPrefix()] {
+	family, _ := parseColumn(k.Column)
+	for _, ri := range row[family] {
 		if ri.Column == k.Column {
 			return true, nil
 		}
@@ -197,7 +250,7 @@ func (s *store) persistBytes(ctx context.Context, row, col string, tsUsec int64,
 // "family:col:id" -> ("family", "col:id")
 func parseColumn(id string) (string, string) {
 	idx := strings.Index(id, ":")
-	return id[:idx], id[idx:]
+	return id[:idx], id[idx+1:]
 }
 
 // graph implements the storage.Graph interface using Bigtable.
@@ -218,81 +271,390 @@ func (g *graph) ID(ctx context.Context) string {
 // AddTriples adds the triples into storage. Adding triples that already exist
 // will not return an error.
 func (g *graph) AddTriples(ctx context.Context, ts []*triple.Triple) error {
-	return errors.New("not implemented")
+	var (
+		rows []string
+		muts []*bigtable.Mutation
+	)
+	for _, t := range ts {
+		ks := keys.ForTriple(g.id, t)
+		data := []byte(t.String())
+		for _, k := range ks {
+			family, column := parseColumn(k.Column)
+			btm := bigtable.NewMutation()
+			btm.Set(family, column, bigtable.Timestamp(k.Timestamp), data)
+			rows = append(rows, k.Row)
+			muts = append(muts, btm)
+		}
+	}
+
+	errs, err := g.table.ApplyBulk(ctx, rows, muts)
+	if err != nil {
+		return err
+	}
+	if len(errs) > 0 {
+		return errs[0]
+	}
+	return nil
 }
 
 // RemoveTriples removes the specified triples from storage. Removing triples
 // that are not present in the store will not return an error.
 func (g *graph) RemoveTriples(ctx context.Context, ts []*triple.Triple) error {
-	return errors.New("not implemented")
+	var (
+		rows []string
+		muts []*bigtable.Mutation
+	)
+	for _, t := range ts {
+		ks := keys.ForTriple(g.id, t)
+		for _, k := range ks {
+			btm := bigtable.NewMutation()
+			btm.DeleteRow()
+			rows = append(rows, k.Row)
+			muts = append(muts, btm)
+		}
+	}
+
+	errs, err := g.table.ApplyBulk(ctx, rows, muts)
+	if err != nil {
+		return err
+	}
+	if len(errs) > 0 {
+		return errs[0]
+	}
+	return nil
+}
+
+// configurableRangeRead provides a generic facility to perform generic range
+// reads against the bigtable. Given the row prefix, the column prefix, and
+// the lookup options. The process function will get called for each of
+// the triples retrieved that require further processing.
+func (g *graph) configurableRangeRead(ctx context.Context, rowPrefix, colPrefix string, lo *storage.LookupOptions, process func(*triple.Triple)) error {
+	rr := bigtable.PrefixRange(rowPrefix)
+
+	var opts []bigtable.ReadOption
+
+	if lo.MaxElements > 0 {
+		// This will likely overestimate the rows returned, but the
+		// parser will do another filtering pass later.
+		opts = append(opts, bigtable.LimitRows(int64(lo.MaxElements)))
+	}
+
+	timeAnchored := false
+	lb, ub := int64(0), int64(math.MaxInt64)
+	if lo.LowerAnchor != nil {
+		lb = lo.LowerAnchor.UnixNano() / 1000
+		timeAnchored = true
+	}
+	if lo.UpperAnchor != nil {
+		ub = lo.UpperAnchor.UnixNano() / 1000
+		timeAnchored = true
+	}
+	if timeAnchored {
+		opts = append(opts,
+			bigtable.RowFilter(
+				bigtable.TimestampRangeFilterMicros(bigtable.Timestamp(lb), bigtable.Timestamp(ub))))
+	}
+
+	cnt := 0
+	processRow := func(row bigtable.Row) bool {
+		for _, entries := range row {
+			// Use only one of the available indices.
+			for _, cell := range entries {
+				t, err := triple.Parse(string(cell.Value), literal.DefaultBuilder())
+				if err != nil {
+					return false
+				}
+				if lo.MaxElements != 0 && cnt >= lo.MaxElements {
+					return false
+				}
+				process(t)
+				cnt++
+			}
+		}
+		return true
+	}
+	return g.table.ReadRows(ctx, rr, processRow, opts...)
 }
 
 // Objects pushes the objects for the given object and predicate to the provided
 // channel.
 func (g *graph) Objects(ctx context.Context, s *node.Node, p *predicate.Predicate, lo *storage.LookupOptions, objs chan<- *triple.Object) error {
-	return errors.New("not implemented")
+	defer close(objs)
+
+	sUUID, pUUID := s.UUID(), p.PartialUUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "SPO", sUUID, pUUID)
+	colPrefix := "PO:" + pUUID.String()
+
+	// Start the read.
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		if p.Type() == t.Predicate().Type() {
+			select {
+			case <-ctx.Done():
+				// We are done.
+			case objs <- t.Object():
+				// We are not done and properly sent.
+			}
+		}
+	})
 }
 
 // Subjects pushes the subjects for the given predicate and object to the
 // provided channel.
 func (g *graph) Subjects(ctx context.Context, p *predicate.Predicate, o *triple.Object, lo *storage.LookupOptions, subs chan<- *node.Node) error {
-	return errors.New("not implemented")
+	defer close(subs)
+
+	pUUID, oUUID := p.PartialUUID(), o.UUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "POS", pUUID, oUUID)
+	colPrefix := "OS:" + oUUID.String()
+
+	// Start the read.
+	visited := make(map[string]bool)
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		if uuid := t.Subject().UUID().String(); !visited[uuid] {
+			visited[uuid] = true
+			select {
+			case <-ctx.Done():
+				// We are done.
+			case subs <- t.Subject():
+				// We are not done and properly sent.
+			}
+		}
+	})
 }
 
 // PredicatesForSubject pushes the predicates for the given subject to the
 // provided channel.
 func (g *graph) PredicatesForSubject(ctx context.Context, s *node.Node, lo *storage.LookupOptions, prds chan<- *predicate.Predicate) error {
-	return errors.New("not implemented")
+	defer close(prds)
+
+	sUUID := s.UUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "SPO", sUUID)
+	colPrefix := "PO:"
+
+	// Start the read.
+	visited := make(map[string]bool)
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		if uuid := t.Predicate().UUID().String(); !visited[uuid] {
+			visited[uuid] = true
+			select {
+			case <-ctx.Done():
+				// We are done.
+			case prds <- t.Predicate():
+				// We are not done and properly sent.
+			}
+		}
+	})
 }
 
 // PredicatesForObject pushes the predicates for the given object to the
 // provided channel.
 func (g *graph) PredicatesForObject(ctx context.Context, o *triple.Object, lo *storage.LookupOptions, prds chan<- *predicate.Predicate) error {
-	return errors.New("not implemented")
+	defer close(prds)
+
+	oUUID := o.UUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "OSP", oUUID)
+	colPrefix := "SP:"
+
+	// Start the read.
+	visited := make(map[string]bool)
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		if uuid := t.Predicate().UUID().String(); !visited[uuid] {
+			visited[uuid] = true
+			select {
+			case <-ctx.Done():
+				// We are done.
+			case prds <- t.Predicate():
+				// We are not done and properly sent.
+			}
+		}
+	})
 }
 
 // PredicatesForSubjectAndObject pushes the predicates for the given subject and
 // object to the provided channel.
 func (g *graph) PredicatesForSubjectAndObject(ctx context.Context, s *node.Node, o *triple.Object, lo *storage.LookupOptions, prds chan<- *predicate.Predicate) error {
-	return errors.New("not implemented")
+	defer close(prds)
+
+	sUUID := s.UUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "SOP", sUUID)
+	colPrefix := "OP:"
+
+	// Start the read.
+	visited := make(map[string]bool)
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		if uuid := t.Predicate().UUID().String(); !visited[uuid] {
+			visited[uuid] = true
+			select {
+			case <-ctx.Done():
+				// We are done.
+			case prds <- t.Predicate():
+				// We are not done and properly sent.
+			}
+		}
+	})
 }
 
 // TriplesForSubject pushes the triples with the given subject to the provided
 // channel.
 func (g *graph) TriplesForSubject(ctx context.Context, s *node.Node, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
-	return errors.New("not implemented")
+	defer close(trpls)
+
+	sUUID := s.UUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "SPO", sUUID)
+	colPrefix := "PO:"
+
+	// Start the read.
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		select {
+		case <-ctx.Done():
+			// We are done.
+		case trpls <- t:
+			// We are not done and properly sent.
+		}
+	})
 }
 
 // TriplesForPredicate pushes the triples with the given predicate to the
 // provided channel.
 func (g *graph) TriplesForPredicate(ctx context.Context, p *predicate.Predicate, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
-	return errors.New("not implemented")
+	defer close(trpls)
+
+	pUUID := p.PartialUUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "POS", pUUID)
+	colPrefix := "OS:"
+
+	// Start the read.
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		if p.Type() == t.Predicate().Type() {
+			select {
+			case <-ctx.Done():
+				// We are done.
+			case trpls <- t:
+				// We are not done and properly sent.
+			}
+		}
+	})
 }
 
 // TriplesForObject pushes the triples with the given object to the provided
 // channel.
 func (g *graph) TriplesForObject(ctx context.Context, o *triple.Object, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
-	return errors.New("not implemented")
+	defer close(trpls)
+
+	oUUID := o.UUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "OSP", oUUID)
+	colPrefix := "SP:"
+
+	// Start the read.
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		select {
+		case <-ctx.Done():
+			// We are done.
+		case trpls <- t:
+			// We are not done and properly sent.
+		}
+	})
 }
 
 // TriplesForSubjectAndPredicate pushes the triples for the given subject and
 // predicate to the provided channel.
 func (g *graph) TriplesForSubjectAndPredicate(ctx context.Context, s *node.Node, p *predicate.Predicate, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
-	return errors.New("not implemented")
+	defer close(trpls)
+
+	sUUID, pUUID := s.UUID(), p.PartialUUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "SPO", sUUID, pUUID)
+	colPrefix := "PO:" + pUUID.String()
+
+	// Start the read.
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		if p.Type() == t.Predicate().Type() {
+			select {
+			case <-ctx.Done():
+				// We are done.
+			case trpls <- t:
+				// We are not done and properly sent.
+			}
+		}
+	})
 }
 
 // TriplesForPredicateAndObject pushes the triples for the given predicate and
 // object to the provided channel.
 func (g *graph) TriplesForPredicateAndObject(ctx context.Context, p *predicate.Predicate, o *triple.Object, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
-	return errors.New("not implemented")
+	defer close(trpls)
+
+	pUUID, oUUID := p.PartialUUID(), o.UUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "POS", pUUID, oUUID)
+	colPrefix := "OS:" + oUUID.String()
+
+	// Start the read.
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		if p.Type() == t.Predicate().Type() {
+			select {
+			case <-ctx.Done():
+				// We are done.
+			case trpls <- t:
+				// We are not done and properly sent.
+			}
+		}
+	})
 }
 
 // Exist checks if the provided triple exists in the store.
 func (g *graph) Exist(ctx context.Context, t *triple.Triple) (bool, error) {
-	return false, errors.New("not implemented")
+	s, p, o := t.Subject(), t.Predicate(), t.Object()
+	pUUID, oUUID, sUUID := p.PartialUUID(), o.UUID(), s.UUID()
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "POS", pUUID, oUUID, sUUID)
+	colPrefix := "OS:" + oUUID.String()
+
+	// Start the read.
+	found := false
+	tUUID := t.UUID()
+	err := g.configurableRangeRead(ctx, rowPrefix, colPrefix, storage.DefaultLookup, func(bt *triple.Triple) {
+		if uuid.Equal(tUUID, bt.UUID()) {
+			found = true
+		}
+	})
+	return found, err
 }
 
 // Triples pushes all triples in the store to the provided channel.
 func (g *graph) Triples(ctx context.Context, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
-	return errors.New("not implemented")
+	defer close(trpls)
+
+	// Create the prefix required for the read.
+	rowPrefix := keys.PrependPrefix(g.ID(ctx), "POS")
+	colPrefix := "OS:"
+
+	// Start the read.
+	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
+		select {
+		case <-ctx.Done():
+			// We are done.
+		case trpls <- t:
+			// We are not done and properly sent.
+		}
+	})
 }

@@ -15,12 +15,16 @@ package bwbigtable
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"cloud.google.com/go/bigtable"
 	"cloud.google.com/go/bigtable/bttest"
 	"github.com/google/badwolf/storage"
+	"github.com/google/badwolf/triple"
 	"github.com/google/badwolf/triple/literal"
+	"github.com/google/badwolf/triple/node"
+	"github.com/google/badwolf/triple/predicate"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 )
@@ -105,7 +109,7 @@ func TestStore_Name(t *testing.T) {
 	str, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	if got,want:=str.Name(ctx),"bigtable://test:test/badwolf";got!=want{
+	if got, want := str.Name(ctx), "bigtable://test:test/badwolf"; got != want {
 		t.Errorf("store.Nane(_); got %q, want %q", got, want)
 	}
 }
@@ -115,7 +119,774 @@ func TestStore_Version(t *testing.T) {
 	str, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	if got,want:=str.Version(ctx),"bwbigtable@"+version;got!=want{
+	if got, want := str.Version(ctx), "bwbigtable@"+version; got != want {
 		t.Errorf("store.Version(_); got %q, want %q", got, want)
+	}
+}
+
+func TestGraphNames(t *testing.T) {
+	ctx, graphNamePrefix, cnt := context.Background(), "?test_graph", 10
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+	for i, max := 0, cnt; i < max; i++ {
+		_, err := s.NewGraph(ctx, fmt.Sprintf("%s_%d", graphNamePrefix, i))
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	names := make(chan string)
+	go func() {
+		if err := s.GraphNames(ctx, names); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	res := make(map[string]bool)
+	for name := range names {
+		res[name] = true
+	}
+	if got, want := len(res), cnt; got != want {
+		t.Errorf("store.GraphNames(_) returned the wrong number of names; got %d, want %d; %v", got, want, res)
+	}
+
+	for i, max := 0, cnt; i < max; i++ {
+		if err := s.DeleteGraph(ctx, fmt.Sprintf("%s_%d", graphNamePrefix, i)); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+func TestNewGraphAndGraphAndDeleteGraph(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if g.ID(ctx) != graphName {
+		t.Errorf("store.NewGraph(_, %q) failed to create graph with the right now; got %q, want %q", graphName, g.ID(ctx), graphName)
+	}
+	got, err := s.(*store).exist(ctx, graphName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := true; got != want {
+		t.Errorf("store.exist(_, %q) got %v, want %v", graphName, got, want)
+	}
+	g2, err := s.NewGraph(ctx, graphName)
+	if err == nil {
+		t.Errorf("store.NewGraph(_, %q) should have failed to create the graph, returned %v instead", graphName, g2)
+	}
+	if _, err := s.Graph(ctx, graphName); err != nil {
+		t.Errorf("store.Graph(_, %q) should have returned a valid graph, %v", graphName, err)
+	}
+	if err := s.DeleteGraph(ctx, graphName); err != nil {
+		t.Fatalf("store.DeleteGraph(ctx, %q) failed to delete graph, %v", graphName, err)
+	}
+	if err := s.DeleteGraph(ctx, graphName); err == nil {
+		t.Fatalf("store.DeleteGraph(ctx, %q) should have failed to delete a non existent graph", graphName)
+	}
+}
+
+func getTestTriples(t *testing.T) []*triple.Triple {
+	var trpls []*triple.Triple
+
+	ss := []string{
+		"/some/type<some id>\t\"foo\"@[]\t/some/type<some id>",
+		"/some/type<some id>\t\"foo\"@[1975-01-01T00:01:01.999999000Z]\t/some/type<some id>",
+		"/some/type<some id>\t\"foo\"@[]\t\"bar\"@[]",
+		"/some/type<some id>\t\"foo\"@[]\t\"bar\"@[1975-01-01T00:01:01.999999000Z]",
+		"/some/type<some id>\t\"foo\"@[]\t\"true\"^^type:bool",
+		"/some/type<some id>\t\"foo\"@[]\t\"1\"^^type:int64",
+		"/some/type<some id>\t\"foo\"@[]\t\"1.0\"^^type:float64",
+		"/some/type<some id>\t\"foo\"@[]\t\"foo bar\"^^type:text",
+		"/some/type<some id>\t\"foo\"@[]\t\"[0 0 0]\"^^type:blob",
+		"/some/type<some other id>\t\"foo\"@[]\t/some/type<some id>",
+		"/some/type<some other id>\t\"foo\"@[1976-01-01T00:01:01.999999000Z]\t/some/type<some id>",
+		"/some/type<some other id>\t\"foo\"@[]\t\"bar\"@[]",
+		"/some/type<some other id>\t\"foo\"@[]\t\"bar\"@[1975-01-01T00:01:01.999999000Z]",
+		"/some/type<some other id>\t\"foo\"@[]\t\"true\"^^type:bool",
+		"/some/type<some other id>\t\"foo\"@[]\t\"1\"^^type:int64",
+		"/some/type<some other id>\t\"foo\"@[]\t\"1.0\"^^type:float64",
+		"/some/type<some other id>\t\"foo\"@[]\t\"foo bar\"^^type:text",
+		"/some/type<some other id>\t\"foo\"@[]\t\"[0 0 0]\"^^type:blob",
+	}
+	for _, s := range ss {
+		trpl, err := triple.Parse(s, literal.DefaultBuilder())
+		if err != nil {
+			t.Fatalf("triple.Parse failed to parse valid test triple %s with error %v", s, err)
+		}
+		trpls = append(trpls, trpl)
+	}
+
+	return trpls
+}
+
+func TestAddTriplesAndRemoveTriplesAndTriples(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	// Add test triples and check existence.
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Check all triples were added
+	tc := make(chan *triple.Triple)
+	go func() {
+		if err := g.Triples(ctx, storage.DefaultLookup, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	got := 0
+	for _ = range tc {
+		got++
+	}
+	if want := len(trpls); got != want {
+		t.Errorf("g.Triples(_) return the wrong number of triples; got %d, want %d", got, want)
+	}
+
+	// Remove triples and check they do not exist any longer.
+	if err := g.RemoveTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+	tc = make(chan *triple.Triple)
+	go func() {
+		if err := g.Triples(ctx, storage.DefaultLookup, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	got = 0
+	for _ = range tc {
+		got++
+	}
+	if want := 0; got != want {
+		t.Errorf("g.Triples(_) return the wrong number of triples; got %d, want %d", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestAddTriple(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+	trpls := getTestTriples(t)
+
+	// Add test triples and check existence.
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Check all triples were added
+	tc := make(chan *triple.Triple)
+	go func() {
+		if err := g.Triples(ctx, storage.DefaultLookup, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	got := 0
+	for _ = range tc {
+		got++
+	}
+	if want := len(trpls); got != want {
+		t.Errorf("g.Triples(_, _) returned the wrong number of triples; got %d, want %d", got, want)
+	}
+
+	// Check all the triples were returned correctly.
+	gm := make(map[string]bool)
+	for _, t := range trpls {
+		gm[t.UUID().String()] = true
+	}
+
+	tc = make(chan *triple.Triple)
+	go func() {
+		if err := g.Triples(ctx, storage.DefaultLookup, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	diff := make(map[string]bool)
+	for trpl := range tc {
+		guid := trpl.UUID().String()
+		if !gm[guid] {
+			t.Errorf("g.Triples(_, _) returned a triple that did not exist on the test set, %s", trpl)
+		}
+		diff[guid] = true
+	}
+	if got, want := len(gm), len(diff); got != want {
+		t.Errorf("g.Triples(_, _) returned a different set of triples; got %d, want %d", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestObjects(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Get all objects.
+	n, p, objs := trpls[0].Subject(), trpls[0].Predicate(), make(chan *triple.Object)
+	go func() {
+		if err := g.Objects(ctx, n, p, &storage.LookupOptions{}, objs); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt := 0
+	for _ = range objs {
+		cnt++
+	}
+	if got, want := cnt, 8; got != want {
+		t.Errorf("g.Objects(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get only one object.
+	n, p, objs = trpls[0].Subject(), trpls[0].Predicate(), make(chan *triple.Object)
+	go func() {
+		if err := g.Objects(ctx, n, p, &storage.LookupOptions{MaxElements: 1}, objs); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt = 0
+	for _ = range objs {
+		cnt++
+	}
+	if got, want := cnt, 1; got != want {
+		t.Errorf("g.Objects(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestSubjects(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Get all subjects.
+	p, o, subjs := trpls[0].Predicate(), trpls[0].Object(), make(chan *node.Node)
+	go func() {
+		if err := g.Subjects(ctx, p, o, &storage.LookupOptions{}, subjs); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt := 0
+	for _ = range subjs {
+		cnt++
+	}
+	if got, want := cnt, 2; got != want {
+		t.Errorf("g.Subjects(_,_,_) failed to return the right number of subjects; got %v, want %v", got, want)
+	}
+
+	// Get only one object.
+	p, o, subjs = trpls[0].Predicate(), trpls[0].Object(), make(chan *node.Node)
+	go func() {
+		if err := g.Subjects(ctx, p, o, &storage.LookupOptions{MaxElements: 1}, subjs); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt = 0
+	for _ = range subjs {
+		cnt++
+	}
+	if got, want := cnt, 1; got != want {
+		t.Errorf("g.Subjects(_,_,_) failed to return the right number of subjects; got %v, want %v", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestPredicatesForSubjects(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Get all predicates for subject.
+	n, prds := trpls[0].Subject(), make(chan *predicate.Predicate)
+	go func() {
+		if err := g.PredicatesForSubject(ctx, n, &storage.LookupOptions{}, prds); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt := 0
+	for _ = range prds {
+		cnt++
+	}
+	if got, want := cnt, 2; got != want {
+		t.Errorf("g.PredicatesForSubject(_,_,_) failed to return the right number of subjects; got %v, want %v", got, want)
+	}
+
+	// Get only one predicate.
+	n, prds = trpls[0].Subject(), make(chan *predicate.Predicate)
+	go func() {
+		if err := g.PredicatesForSubject(ctx, n, &storage.LookupOptions{MaxElements: 1}, prds); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt = 0
+	for _ = range prds {
+		cnt++
+	}
+	if got, want := cnt, 1; got != want {
+		t.Errorf("g.PredicatesForSubject(_,_,_) failed to return the right number of subjects; got %v, want %v", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestPredicatesForObject(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Get all predicates for object.
+	o, prds := trpls[0].Object(), make(chan *predicate.Predicate)
+	go func() {
+		if err := g.PredicatesForObject(ctx, o, &storage.LookupOptions{}, prds); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt := 0
+	for _ = range prds {
+		cnt++
+	}
+	if got, want := cnt, 3; got != want {
+		t.Errorf("g.PredicatesForObject(_,_,_) failed to return the right number of subjects; got %v, want %v", got, want)
+	}
+
+	// Get only one predicate.
+	o, prds = trpls[0].Object(), make(chan *predicate.Predicate)
+	go func() {
+		if err := g.PredicatesForObject(ctx, o, &storage.LookupOptions{MaxElements: 1}, prds); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt = 0
+	for _ = range prds {
+		cnt++
+	}
+	if got, want := cnt, 1; got != want {
+		t.Errorf("g.PredicatesForObject(_,_,_) failed to return the right number of subjects; got %v, want %v", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestPredicatesForSubjectAndObjects(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Get all predicates for subject and object.
+	n, o, prds := trpls[0].Subject(), trpls[0].Object(), make(chan *predicate.Predicate)
+	go func() {
+		if err := g.PredicatesForSubjectAndObject(ctx, n, o, &storage.LookupOptions{}, prds); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt := 0
+	for _ = range prds {
+		cnt++
+	}
+	if got, want := cnt, 2; got != want {
+		t.Errorf("g.PredicatesForSubjectAndObject(_,_,_) failed to return the right number of subjects; got %v, want %v", got, want)
+	}
+
+	// Get only one predicate.
+	n, o, prds = trpls[0].Subject(), trpls[0].Object(), make(chan *predicate.Predicate)
+	go func() {
+		if err := g.PredicatesForSubjectAndObject(ctx, n, o, &storage.LookupOptions{MaxElements: 1}, prds); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt = 0
+	for _ = range prds {
+		cnt++
+	}
+	if got, want := cnt, 1; got != want {
+		t.Errorf("g.PredicatesForSubjectAndObject(_,_,_) failed to return the right number of subjects; got %v, want %v", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestTriplesForSubject(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Get all triples.
+	n, tc := trpls[0].Subject(), make(chan *triple.Triple)
+	go func() {
+		if err := g.TriplesForSubject(ctx, n, &storage.LookupOptions{}, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt := 0
+	for _ = range tc {
+		cnt++
+	}
+	if got, want := cnt, 9; got != want {
+		t.Errorf("g.TriplesForSubject(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get only one triple.
+	n, tc = trpls[0].Subject(), make(chan *triple.Triple)
+	go func() {
+		if err := g.TriplesForSubject(ctx, n, &storage.LookupOptions{MaxElements: 1}, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt = 0
+	for _ = range tc {
+		cnt++
+	}
+	if got, want := cnt, 1; got != want {
+		t.Errorf("g.TriplesForSubject(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestTriplesForPredicate(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Get all triples.
+	p, tc := trpls[0].Predicate(), make(chan *triple.Triple)
+	go func() {
+		if err := g.TriplesForPredicate(ctx, p, &storage.LookupOptions{}, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt := 0
+	for _ = range tc {
+		cnt++
+	}
+	if got, want := cnt, 16; got != want {
+		t.Errorf("g.TriplesForPredicate(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get only one triple.
+	p, tc = trpls[0].Predicate(), make(chan *triple.Triple)
+	go func() {
+		if err := g.TriplesForPredicate(ctx, p, &storage.LookupOptions{MaxElements: 1}, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt = 0
+	for _ = range tc {
+		cnt++
+	}
+	if got, want := cnt, 1; got != want {
+		t.Errorf("g.TriplesForPredicate(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestTriplesForObject(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Get all triples.
+	o, tc := trpls[0].Object(), make(chan *triple.Triple)
+	go func() {
+		if err := g.TriplesForObject(ctx, o, &storage.LookupOptions{}, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt := 0
+	for _ = range tc {
+		cnt++
+	}
+	if got, want := cnt, 4; got != want {
+		t.Errorf("g.TriplesForObject(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get only one triple.
+	o, tc = trpls[0].Object(), make(chan *triple.Triple)
+	go func() {
+		if err := g.TriplesForObject(ctx, o, &storage.LookupOptions{MaxElements: 1}, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt = 0
+	for _ = range tc {
+		cnt++
+	}
+	if got, want := cnt, 1; got != want {
+		t.Errorf("g.TriplesForObject(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestTriplesForSubjectAndPredicate(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Get all triples.
+	n, p, tc := trpls[0].Subject(), trpls[0].Predicate(), make(chan *triple.Triple)
+	go func() {
+		if err := g.TriplesForSubjectAndPredicate(ctx, n, p, &storage.LookupOptions{}, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt := 0
+	for _ = range tc {
+		cnt++
+	}
+	if got, want := cnt, 8; got != want {
+		t.Errorf("g.TriplesForSubjectAndPredicate(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get only one triple.
+	n, p, tc = trpls[0].Subject(), trpls[0].Predicate(), make(chan *triple.Triple)
+	go func() {
+		if err := g.TriplesForSubjectAndPredicate(ctx, n, p, &storage.LookupOptions{MaxElements: 1}, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt = 0
+	for _ = range tc {
+		cnt++
+	}
+	if got, want := cnt, 1; got != want {
+		t.Errorf("g.TriplesForSubjectAndPredicate(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestTriplesForPredicateAndObject(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls); err != nil {
+		t.Error(err)
+	}
+
+	// Get all triples.
+	p, o, tc := trpls[0].Predicate(), trpls[0].Object(), make(chan *triple.Triple)
+	go func() {
+		if err := g.TriplesForPredicateAndObject(ctx, p, o, &storage.LookupOptions{}, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt := 0
+	for _ = range tc {
+		cnt++
+	}
+	if got, want := cnt, 2; got != want {
+		t.Errorf("g.TriplesForPredicateAndObject(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get only one triple.
+	p, o, tc = trpls[0].Predicate(), trpls[0].Object(), make(chan *triple.Triple)
+	go func() {
+		if err := g.TriplesForPredicateAndObject(ctx, p, o, &storage.LookupOptions{MaxElements: 1}, tc); err != nil {
+			t.Error(err)
+		}
+	}()
+	cnt = 0
+	for _ = range tc {
+		cnt++
+	}
+	if got, want := cnt, 1; got != want {
+		t.Errorf("g.TriplesForPredicateAndObject(_,_,_) failed to return the right number of objects; got %v, want %v", got, want)
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestExist(t *testing.T) {
+	ctx, graphName := context.Background(), "?test"
+	s, clean := emptyTestStore(ctx, t)
+	defer clean()
+
+	trpls := getTestTriples(t)
+
+	g, err := s.NewGraph(ctx, graphName)
+	if err != nil {
+		t.Error(err)
+	}
+	if err := g.AddTriples(ctx, trpls[1:]); err != nil {
+		t.Error(err)
+	}
+
+	// Check all triples exist.
+	for _, trpl := range trpls[1:] {
+		found, err := g.Exist(ctx, trpl)
+		if err != nil {
+			t.Error(err)
+		}
+		if !found {
+			t.Errorf("g.Exist(_,_) failed to find triple %v", trpl)
+		}
+	}
+
+	// Check leave-one-out triple does not exist.
+	found, err := g.Exist(ctx, trpls[0])
+	if err != nil {
+		t.Error(err)
+	}
+	if found {
+		t.Errorf("g.Exist(_,_) should have not found triple %v", trpls[0])
+	}
+
+	// Get rid of the test graph.
+	if err = s.DeleteGraph(ctx, graphName); err != nil {
+		t.Error(err)
 	}
 }

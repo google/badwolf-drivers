@@ -25,10 +25,10 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
 	"github.com/google/badwolf/triple"
 	"github.com/google/badwolf/triple/predicate"
 	"github.com/pborman/uuid"
-	"fmt"
 )
 
 const (
@@ -56,13 +56,13 @@ func (i *Indexer) String() string {
 	return "<r/" + i.Row + " c/" + i.Column + " ta/" + fmt.Sprint(i.Timestamp) + ">"
 }
 
-// compose returns a composed string base on the parts provided.
-func prependPrefix(graph string, prefix string, UUIDs ...uuid.UUID) string {
+// PrependPrefix composes returns a composed string base on the parts provided.
+func PrependPrefix(graph string, prefix string, UUIDs ...uuid.UUID) string {
 	gb := bytes.NewBufferString(graph)
 	gb.WriteString(":")
 
 	gb.WriteString(prefix)
-	if len(UUIDs)>0 {
+	if len(UUIDs) > 0 {
 		gb.WriteString(":")
 	}
 
@@ -86,8 +86,8 @@ func tripleColumnFamily(p *predicate.Predicate) string {
 // cellIndexerKeys returns an indexer entry based on the provided information.
 func cellIndexerKeys(g string, rowPrefix, columnFamily, columnPrefix string, ts int64, rowUUIDs, columnUUIDs []uuid.UUID) *Indexer {
 	return &Indexer{
-		Row:       prependPrefix(g, rowPrefix, rowUUIDs...),
-		Column:    prependPrefix(columnFamily, columnPrefix),
+		Row:       PrependPrefix(g, rowPrefix, rowUUIDs...),
+		Column:    PrependPrefix(columnFamily, columnPrefix),
 		Timestamp: ts,
 	}
 }
@@ -124,6 +124,7 @@ func ForGraph(g string) *Indexer {
 	return &Indexer{
 		Row:       "graph:" + g,
 		Column:    graphMetadataColumn,
+		Timestamp: int64(1), // Stable anchor.
 	}
 }
 
