@@ -32,6 +32,7 @@ $ export GOPATH=$PWD
 $ go get github.com/boltdb/bolt
 $ go get -u cloud.google.com/go/bigtable
 $ go get github.com/google/badwolf/...
+$ go get github.com/google/btree
 $ go get github.com/peterh/liner
 $ go get github.com/pborman/uuid
 ```
