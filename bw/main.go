@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"io"
 	"log"
@@ -24,6 +25,8 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	"github.com/google/badwolf-drivers/bwbigtable"
+	"github.com/google/badwolf-drivers/bwbigtable/client"
 	"github.com/google/badwolf-drivers/bwbolt"
 	"github.com/google/badwolf/storage"
 	"github.com/google/badwolf/storage/memory"
@@ -38,11 +41,11 @@ var (
 	registeredDrivers map[string]common.StoreGenerator
 
 	// Available flags.
-	driverName = flag.String("driver", "VOLATILE", "The storage driver to use {VOLATILE|BWBOLT}.")
+	driverName = flag.String("driver", "VOLATILE", "The storage driver to use {VOLATILE|BWBOLT|BWBT}.")
 
 	bqlChannelSize        = flag.Int("bql_channel_size", 0, "Internal channel size to use on BQL queries.")
 	bulkTripleOpSize      = flag.Int("bulk_triple_op_size", 1000, "Number of triples to use in bulk load operations.")
-	bulkTripleBuildersize = flag.Int("bulk_triple_builder_size_in_bytes", 1000, "Maximum size of literals when parsing a triple.")
+	bulkTripleBuilderSize = flag.Int("bulk_triple_builder_size_in_bytes", 1000, "Maximum size of literals when parsing a triple.")
 
 	// Add your driver flags below.
 
@@ -51,8 +54,14 @@ var (
 	boldTimeout  = flag.Duration("bolt_db_timeout", 3*time.Second, "The duration of the timeout while opening the Bolt database.")
 	boltReadOnly = flag.Bool("bolt_db_read_only", false, "Use te Bolt DB only in read only mode.")
 
+	// BwBT driver.
+	btProjectID  = flag.String("bt_project_id", "", "The GCP project ID.")
+	btInstanceID = flag.String("bt_instance_id", "", "The GCP BigTable instance ID.")
+	btTableID    = flag.String("bt_table_id", client.TableName(), "The GCP BigTable instance ID.")
+
 	// Driver specific variables.
 	db *bolt.DB
+	bt *client.Client
 )
 
 // Registers the available drivers.
@@ -66,6 +75,21 @@ func registerDrivers() {
 			s, bdb, err := bwbolt.New(*boltDBPath, literal.DefaultBuilder(), *boldTimeout, *boltReadOnly)
 			db = bdb
 			return s, err
+		},
+		"BWBT": func() (storage.Store, error) {
+			ctx := context.Background()
+			if _, err := client.New(ctx, *btProjectID, *btInstanceID); err != nil {
+				return nil, err
+			}
+			tbl := *btTableID
+			if tbl == "" {
+				tbl = client.TableName()
+			}
+			return bwbigtable.New(ctx, &bwbigtable.TableSpec{
+				ProjectID:  *btProjectID,
+				InstanceID: *btInstanceID,
+				TableID:    tbl,
+			}, *bulkTripleOpSize, *bulkTripleBuilderSize, *bqlChannelSize)
 		},
 	}
 }
@@ -130,7 +154,7 @@ func NewAdvancedReadLiner() repl.ReadLiner {
 func main() {
 	flag.Parse()
 	registerDrivers()
-	ret := common.Run(*driverName, flag.Args(), registeredDrivers, *bqlChannelSize, *bulkTripleOpSize, *bulkTripleBuildersize, NewAdvancedReadLiner())
+	ret := common.Run(*driverName, flag.Args(), registeredDrivers, *bqlChannelSize, *bulkTripleOpSize, *bulkTripleBuilderSize, NewAdvancedReadLiner())
 	// Clean up.
 	if db != nil {
 		db.Close()

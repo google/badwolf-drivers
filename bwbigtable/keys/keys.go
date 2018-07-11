@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	graphRowPrefix              = "graph:"
+	graphColumnFamily           = "graph"
+	graphRowPrefix              = graphColumnFamily + ":"
 	graphMetadataColumn         = "graph:metadata"
 	immutableTripleColumnFamily = "immutable_triple"
 	temporalTripleColumnFamily  = "temporal_triple"
@@ -142,3 +143,19 @@ func CellTimestamp(t *triple.Triple) int64 {
 	nsec, _ := binary.Varint(h[:])
 	return nsec
 }
+
+// GraphColumnFamily returns the graph column family.
+func GraphColumnFamily() string{
+	return graphColumnFamily
+}
+
+// ImmutableColumnFamily returns the immutable predicate column family.
+func ImmutableColumnFamily()string{
+	return immutableTripleColumnFamily
+}
+
+// TemporalColumnFamily returns the temporal predicate column family.
+func TemporalColumnFamily()string{
+	return temporalTripleColumnFamily
+}
+

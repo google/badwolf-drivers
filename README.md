@@ -47,10 +47,24 @@ check that the new `bw` tools contains the new drivers by checking the
 Usage of ./bin/bw:
   -bolt_db_path string
     	The path to the Bolt database to use.
+  -bolt_db_read_only
+    	Use te Bolt DB only in read only mode.
+  -bolt_db_timeout duration
+    	The duration of the timeout while opening the Bolt database. (default 3s)
   -bql_channel_size int
     	Internal channel size to use on BQL queries.
+  -bt_instance_id string
+    	The GCP BigTable instance ID.
+  -bt_project_id string
+    	The GCP project ID.
+  -bt_table_id string
+    	The GCP BigTable instance ID. (default "BadWolf")
+  -bulk_triple_builder_size_in_bytes int
+    	Maximum size of literals when parsing a triple. (default 1000)
+  -bulk_triple_op_size int
+    	Number of triples to use in bulk load operations. (default 1000)
   -driver string
-    	The storage driver to use {VOLATILE|BWBOLT}. (default "VOLATILE")
+    	The storage driver to use {VOLATILE|BWBOLT|BWBT}. (default "VOLATILE")
 ```
 
 For more information about how to use the commands or how the flags work
@@ -60,7 +74,7 @@ please see the
 ## Testing the command line tool
 
 You may always want to run all the test for both repos `badwolf` and 
-`badwolf-drivers` to make sure eveything is A-Ok. If the tests fail, you 
+`badwolf-drivers` to make sure everything is A-Ok. If the tests fail, you 
 should consider not using the build tool since it may be tainted.
 
 ```
@@ -88,4 +102,42 @@ ok  	github.com/google/badwolf/triple/node	1.047s
 ok  	github.com/google/badwolf/triple/predicate	1.020s
 ?   	github.com/google/badwolf-drivers/bw	[no test files]
 ok  	github.com/google/badwolf-drivers/bwbolt	1.277s
+```
+
+## GCP BT driver
+
+In order to run this driver you will need to set up a GCP BT instance. You may
+want to follow the simple instructions:
+
+1. Set up Cloud Console.
+  1. Go to the [Cloud Console](https://cloud.google.com/console) and create or 
+     select your project. You will need the project ID later.
+  1. Go to **Settings > Project Billing Settings** and enable billing.
+  1. Select **APIs & Services > APIs**.
+  1. Enable the **Cloud BigTable API** and the **Cloud BigTable Admin API**.
+     (You may need to search for the API).
+1. Set up gcloud.
+  1. `gcloud components update`
+  1. `gcloud auth login`
+  1. `gcloud config set project PROJECT_ID`
+  1. `gcloud auth application-default login`
+1. Provision a Cloud BigTable instance
+  1. Follow the instructions in the [user 
+     documentation](https://cloud.google.com/bigtable/docs/creating-instance) to 
+     create a Google Cloud Platform project and Cloud Bigtable instance if 
+     necessary.
+  1. You'll need to reference your project id and instance id to run the 
+     application.
+     
+Once you have this set up, you should be able to run the command below and 
+get dropped on the BQL console.
+
+```
+$ bw --driver=BWBT --bt_project_id=PROJECT_ID --bt_instance_id=INSTANCE_ID bql
+Welcome to BadWolf vCli (0.9.1-dev)
+Using driver "bigtable://bw-dev:bw-dev/BadWolf". Type quit; to exit
+Session started at 2018-07-11 13:00:55.172146282 -0700 PDT m=+0.937832480
+
+bql> 
+
 ```
