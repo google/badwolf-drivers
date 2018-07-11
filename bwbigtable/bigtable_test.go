@@ -109,7 +109,7 @@ func TestStore_Name(t *testing.T) {
 	str, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	if got, want := str.Name(ctx), "bigtable://test:test/badwolf"; got != want {
+	if got, want := str.Name(ctx), "bigtable://proj-test:test/badwolf"; got != want {
 		t.Errorf("store.Nane(_); got %q, want %q", got, want)
 	}
 }
@@ -173,8 +173,8 @@ func TestNewGraphAndGraphAndDeleteGraph(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := true; got != want {
-		t.Errorf("store.exist(_, %q) got %v, want %v", graphName, got, want)
+	if !got {
+		t.Errorf("store.exist(_, %q) got %v, want %v", graphName, got, true)
 	}
 	g2, err := s.NewGraph(ctx, graphName)
 	if err == nil {
@@ -249,7 +249,7 @@ func TestAddTriplesAndRemoveTriplesAndTriples(t *testing.T) {
 		}
 	}()
 	got := 0
-	for _ = range tc {
+	for range tc {
 		got++
 	}
 	if want := len(trpls); got != want {
@@ -267,7 +267,7 @@ func TestAddTriplesAndRemoveTriplesAndTriples(t *testing.T) {
 		}
 	}()
 	got = 0
-	for _ = range tc {
+	for range tc {
 		got++
 	}
 	if want := 0; got != want {
@@ -303,7 +303,7 @@ func TestAddTriple(t *testing.T) {
 		}
 	}()
 	got := 0
-	for _ = range tc {
+	for range tc {
 		got++
 	}
 	if want := len(trpls); got != want {
@@ -363,7 +363,7 @@ func TestObjects(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range objs {
+	for range objs {
 		cnt++
 	}
 	if got, want := cnt, 8; got != want {
@@ -378,7 +378,7 @@ func TestObjects(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range objs {
+	for range objs {
 		cnt++
 	}
 	if got, want := cnt, 1; got != want {
@@ -414,7 +414,7 @@ func TestSubjects(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range subjs {
+	for range subjs {
 		cnt++
 	}
 	if got, want := cnt, 2; got != want {
@@ -429,7 +429,7 @@ func TestSubjects(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range subjs {
+	for range subjs {
 		cnt++
 	}
 	if got, want := cnt, 1; got != want {
@@ -465,7 +465,7 @@ func TestPredicatesForSubjects(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range prds {
+	for range prds {
 		cnt++
 	}
 	if got, want := cnt, 2; got != want {
@@ -480,7 +480,7 @@ func TestPredicatesForSubjects(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range prds {
+	for range prds {
 		cnt++
 	}
 	if got, want := cnt, 1; got != want {
@@ -516,7 +516,7 @@ func TestPredicatesForObject(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range prds {
+	for range prds {
 		cnt++
 	}
 	if got, want := cnt, 3; got != want {
@@ -531,7 +531,7 @@ func TestPredicatesForObject(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range prds {
+	for range prds {
 		cnt++
 	}
 	if got, want := cnt, 1; got != want {
@@ -567,7 +567,7 @@ func TestPredicatesForSubjectAndObjects(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range prds {
+	for range prds {
 		cnt++
 	}
 	if got, want := cnt, 2; got != want {
@@ -582,7 +582,7 @@ func TestPredicatesForSubjectAndObjects(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range prds {
+	for range prds {
 		cnt++
 	}
 	if got, want := cnt, 1; got != want {
@@ -618,7 +618,7 @@ func TestTriplesForSubject(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 9; got != want {
@@ -633,7 +633,7 @@ func TestTriplesForSubject(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 1; got != want {
@@ -669,7 +669,7 @@ func TestTriplesForPredicate(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 16; got != want {
@@ -684,7 +684,7 @@ func TestTriplesForPredicate(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 1; got != want {
@@ -720,7 +720,7 @@ func TestTriplesForObject(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 4; got != want {
@@ -735,7 +735,7 @@ func TestTriplesForObject(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 1; got != want {
@@ -771,7 +771,7 @@ func TestTriplesForSubjectAndPredicate(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 8; got != want {
@@ -786,7 +786,7 @@ func TestTriplesForSubjectAndPredicate(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 1; got != want {
@@ -822,7 +822,7 @@ func TestTriplesForPredicateAndObject(t *testing.T) {
 		}
 	}()
 	cnt := 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 2; got != want {
@@ -837,7 +837,7 @@ func TestTriplesForPredicateAndObject(t *testing.T) {
 		}
 	}()
 	cnt = 0
-	for _ = range tc {
+	for range tc {
 		cnt++
 	}
 	if got, want := cnt, 1; got != want {
