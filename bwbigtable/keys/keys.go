@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	graphCellTimestamp        = time.Unix(0, 1714)
+	graphCellTimestamp        = time.Unix(0, 1714000)
 	graphCellTimestampInInt64 = graphCellTimestamp.UnixNano()
 )
 
