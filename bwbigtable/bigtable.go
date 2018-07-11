@@ -176,7 +176,7 @@ func (s *store) DeleteGraph(ctx context.Context, id string) error {
 	}
 	// Remove the graph.
 	k := keys.ForGraph(id)
-	return s.deleteCellRange(ctx, k.Row, k.Column, 0, math.MaxInt64)
+	return s.deleteCellRange(ctx, k.Row, k.Column, 1, math.MaxInt64)
 }
 
 // deleteCellRange delete a cell on the big table.
