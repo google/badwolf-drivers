@@ -136,6 +136,7 @@ func CellTimestamp(t *triple.Triple) int64 {
 	}
 	h := sha256.Sum256([]byte(t.String()))
 	nsec, _ := binary.Varint(h[:])
+	nsec += 1000000 /* Micros get truncated, hence pushing all by 1 sec */
 	return nsec
 }
 
