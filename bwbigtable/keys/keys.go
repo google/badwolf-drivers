@@ -88,7 +88,7 @@ func tripleColumnFamily(p *predicate.Predicate) string {
 }
 
 // cellIndexerKeys returns an indexer entry based on the provided information.
-func cellIndexerKeys(g string, rowPrefix, columnFamily, columnPrefix string, ts int64, rowUUIDs, _ []uuid.UUID) *Indexer {
+func cellIndexerKeys(g string, rowPrefix, columnFamily, columnPrefix string, ts int64, rowUUIDs []uuid.UUID) *Indexer {
 	return &Indexer{
 		Row:       PrependPrefix(g, rowPrefix, rowUUIDs...),
 		Column:    PrependPrefix(columnFamily, columnPrefix),
@@ -105,21 +105,13 @@ func ForTriple(g string, t *triple.Triple) []*Indexer {
 
 	return []*Indexer{
 		cellIndexerKeys(
-			g, "OSP", tcf, "SP", cta,
-			[]uuid.UUID{o, s, p},
-			[]uuid.UUID{s, p}),
+			g, "OSP", tcf, "SP", cta, []uuid.UUID{o, s, p}),
 		cellIndexerKeys(
-			g, "POS", tcf, "OS", cta,
-			[]uuid.UUID{p, o, s},
-			[]uuid.UUID{o, s}),
+			g, "POS", tcf, "OS", cta, []uuid.UUID{p, o, s}),
 		cellIndexerKeys(
-			g, "SOP", tcf, "OP", cta,
-			[]uuid.UUID{s, o, p},
-			[]uuid.UUID{o, p}),
+			g, "SOP", tcf, "OP", cta, []uuid.UUID{s, o, p}),
 		cellIndexerKeys(
-			g, "SPO", tcf, "PO", cta,
-			[]uuid.UUID{s, p, o},
-			[]uuid.UUID{p, o}),
+			g, "SPO", tcf, "PO", cta, []uuid.UUID{s, p, o}),
 	}
 }
 
