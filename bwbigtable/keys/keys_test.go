@@ -64,22 +64,22 @@ func TestForTriple(t *testing.T) {
 				{
 					Row:       "test:OSP:e5364b94-fe66-5b01-a526-5fdf1e028e80:2821fefc-a86e-597b-b187-58805cad8813:91b6c9d2-69e3-5cec-a465-d200f4872671",
 					Column:    "immutable_triple:SP",
-					Timestamp: 1000036,
+					Timestamp: 36000000,
 				},
 				{
 					Row:       "test:POS:91b6c9d2-69e3-5cec-a465-d200f4872671:e5364b94-fe66-5b01-a526-5fdf1e028e80:2821fefc-a86e-597b-b187-58805cad8813",
 					Column:    "immutable_triple:OS",
-					Timestamp: 1000036,
+					Timestamp: 36000000,
 				},
 				{
 					Row:       "test:SOP:2821fefc-a86e-597b-b187-58805cad8813:e5364b94-fe66-5b01-a526-5fdf1e028e80:91b6c9d2-69e3-5cec-a465-d200f4872671",
 					Column:    "immutable_triple:OP",
-					Timestamp: 1000036,
+					Timestamp: 36000000,
 				},
 				{
 					Row:       "test:SPO:2821fefc-a86e-597b-b187-58805cad8813:91b6c9d2-69e3-5cec-a465-d200f4872671:e5364b94-fe66-5b01-a526-5fdf1e028e80",
 					Column:    "immutable_triple:PO",
-					Timestamp: 1000036,
+					Timestamp: 36000000,
 				},
 			},
 		},
@@ -89,22 +89,22 @@ func TestForTriple(t *testing.T) {
 				{
 					Row:       "test:OSP:adbb5f67-23f0-56a6-82a0-4bc08546ae60:2821fefc-a86e-597b-b187-58805cad8813:91b6c9d2-69e3-5cec-a465-d200f4872671",
 					Column:    "immutable_triple:SP",
-					Timestamp: 1000006,
+					Timestamp: 6000000,
 				},
 				{
 					Row:       "test:POS:91b6c9d2-69e3-5cec-a465-d200f4872671:adbb5f67-23f0-56a6-82a0-4bc08546ae60:2821fefc-a86e-597b-b187-58805cad8813",
 					Column:    "immutable_triple:OS",
-					Timestamp: 1000006,
+					Timestamp: 6000000,
 				},
 				{
 					Row:       "test:SOP:2821fefc-a86e-597b-b187-58805cad8813:adbb5f67-23f0-56a6-82a0-4bc08546ae60:91b6c9d2-69e3-5cec-a465-d200f4872671",
 					Column:    "immutable_triple:OP",
-					Timestamp: 1000006,
+					Timestamp: 6000000,
 				},
 				{
 					Row:       "test:SPO:2821fefc-a86e-597b-b187-58805cad8813:91b6c9d2-69e3-5cec-a465-d200f4872671:adbb5f67-23f0-56a6-82a0-4bc08546ae60",
 					Column:    "immutable_triple:PO",
-					Timestamp: 1000006,
+					Timestamp: 6000000,
 				},
 			},
 		},

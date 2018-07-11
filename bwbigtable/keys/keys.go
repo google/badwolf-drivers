@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	graphCellTimestamp        = time.Unix(1, 1714)
+	graphCellTimestamp        = time.Unix(0, 1714000)
 	graphCellTimestampInInt64 = graphCellTimestamp.UnixNano()
 )
 
@@ -136,7 +136,10 @@ func CellTimestamp(t *triple.Triple) int64 {
 	}
 	h := sha256.Sum256([]byte(t.String()))
 	nsec, _ := binary.Varint(h[:])
-	nsec += 1000000 /* Micros get truncated, hence pushing all by 1 sec */
+	if nsec < 1000000 {
+		nsec *= 1000000
+	}
+	nsec = nsec - (nsec % 1000) /* Micros get truncated, hence pushing all by 1 sec */
 	return nsec
 }
 
