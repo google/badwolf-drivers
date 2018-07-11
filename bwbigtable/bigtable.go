@@ -83,7 +83,7 @@ func New(ctx context.Context, spec *TableSpec, bulkTripleOpSize, bulkTripleBuild
 // Name returns the ID of the backend being used.
 func (s *store) Name(ctx context.Context) string {
 	return fmt.Sprintf("bigtable://%s:%s/%s",
-		s.spec.InstanceID, s.spec.InstanceID, s.spec.TableID)
+		s.spec.ProjectID, s.spec.InstanceID, s.spec.TableID)
 }
 
 // Version returns the version of the driver implementation.
