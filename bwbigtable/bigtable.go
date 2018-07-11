@@ -31,7 +31,6 @@ import (
 	"github.com/google/badwolf/triple/literal"
 	"github.com/google/badwolf/triple/node"
 	"github.com/google/badwolf/triple/predicate"
-
 	"github.com/pborman/uuid"
 )
 
@@ -177,7 +176,7 @@ func (s *store) DeleteGraph(ctx context.Context, id string) error {
 	}
 	// Remove the graph.
 	k := keys.ForGraph(id)
-	return s.deleteCellRange(ctx, k.Row, k.Column, k.Timestamp, k.Timestamp)
+	return s.deleteCellRange(ctx, k.Row, k.Column, 0, math.MaxInt64)
 }
 
 // deleteCellRange delete a cell on the big table.
@@ -414,8 +413,8 @@ func (g *graph) Subjects(ctx context.Context, p *predicate.Predicate, o *triple.
 	// Start the read.
 	visited := make(map[string]bool)
 	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
-		if uuid := t.Subject().UUID().String(); !visited[uuid] {
-			visited[uuid] = true
+		if id := t.Subject().UUID().String(); !visited[id] {
+			visited[id] = true
 			select {
 			case <-ctx.Done():
 				// We are done.
@@ -440,8 +439,8 @@ func (g *graph) PredicatesForSubject(ctx context.Context, s *node.Node, lo *stor
 	// Start the read.
 	visited := make(map[string]bool)
 	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
-		if uuid := t.Predicate().UUID().String(); !visited[uuid] {
-			visited[uuid] = true
+		if id := t.Predicate().UUID().String(); !visited[id] {
+			visited[id] = true
 			select {
 			case <-ctx.Done():
 				// We are done.
@@ -466,8 +465,8 @@ func (g *graph) PredicatesForObject(ctx context.Context, o *triple.Object, lo *s
 	// Start the read.
 	visited := make(map[string]bool)
 	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
-		if uuid := t.Predicate().UUID().String(); !visited[uuid] {
-			visited[uuid] = true
+		if id := t.Predicate().UUID().String(); !visited[id] {
+			visited[id] = true
 			select {
 			case <-ctx.Done():
 				// We are done.
@@ -492,8 +491,8 @@ func (g *graph) PredicatesForSubjectAndObject(ctx context.Context, s *node.Node,
 	// Start the read.
 	visited := make(map[string]bool)
 	return g.configurableRangeRead(ctx, rowPrefix, colPrefix, lo, func(t *triple.Triple) {
-		if uuid := t.Predicate().UUID().String(); !visited[uuid] {
-			visited[uuid] = true
+		if id := t.Predicate().UUID().String(); !visited[id] {
+			visited[id] = true
 			select {
 			case <-ctx.Done():
 				// We are done.

@@ -39,7 +39,10 @@ const (
 	temporalTripleColumnFamily  = "temporal_triple"
 )
 
-var smallerTimestamp = time.Unix(0, 1)
+var (
+	graphCellTimestamp        = time.Unix(0, 1714)
+	graphCellTimestampInInt64 = graphCellTimestamp.UnixNano()
+)
 
 // Indexer contains the mapping to a given row+column combination.
 type Indexer struct {
@@ -68,8 +71,8 @@ func PrependPrefix(graph string, prefix string, UUIDs ...uuid.UUID) string {
 	}
 
 	var sUUIDs []string
-	for _, uuid := range UUIDs {
-		sUUIDs = append(sUUIDs, uuid.String())
+	for _, id := range UUIDs {
+		sUUIDs = append(sUUIDs, id.String())
 	}
 	gb.WriteString(strings.Join(sUUIDs, ":"))
 
@@ -85,7 +88,7 @@ func tripleColumnFamily(p *predicate.Predicate) string {
 }
 
 // cellIndexerKeys returns an indexer entry based on the provided information.
-func cellIndexerKeys(g string, rowPrefix, columnFamily, columnPrefix string, ts int64, rowUUIDs, columnUUIDs []uuid.UUID) *Indexer {
+func cellIndexerKeys(g string, rowPrefix, columnFamily, columnPrefix string, ts int64, rowUUIDs, _ []uuid.UUID) *Indexer {
 	return &Indexer{
 		Row:       PrependPrefix(g, rowPrefix, rowUUIDs...),
 		Column:    PrependPrefix(columnFamily, columnPrefix),
@@ -125,7 +128,7 @@ func ForGraph(g string) *Indexer {
 	return &Indexer{
 		Row:       "graph:" + g,
 		Column:    graphMetadataColumn,
-		Timestamp: int64(1), // Stable anchor.
+		Timestamp: graphCellTimestampInInt64, // Stable anchor.
 	}
 }
 
@@ -145,17 +148,16 @@ func CellTimestamp(t *triple.Triple) int64 {
 }
 
 // GraphColumnFamily returns the graph column family.
-func GraphColumnFamily() string{
+func GraphColumnFamily() string {
 	return graphColumnFamily
 }
 
 // ImmutableColumnFamily returns the immutable predicate column family.
-func ImmutableColumnFamily()string{
+func ImmutableColumnFamily() string {
 	return immutableTripleColumnFamily
 }
 
 // TemporalColumnFamily returns the temporal predicate column family.
-func TemporalColumnFamily()string{
+func TemporalColumnFamily() string {
 	return temporalTripleColumnFamily
 }
-
