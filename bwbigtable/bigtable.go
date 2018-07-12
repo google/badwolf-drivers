@@ -178,7 +178,7 @@ func (s *store) DeleteGraph(ctx context.Context, id string) error {
 	k := keys.ForGraph(id)
 	return s.deleteCellRange(
 		ctx, k.Row, k.Column,
-		1000000, /* truncates to millis!? */
+		1000000, /* cloud BT truncates to millis!? */
 		keys.MaxValidTimestamp /* interpreted as infinity*/)
 }
 
