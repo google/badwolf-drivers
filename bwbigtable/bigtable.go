@@ -37,7 +37,7 @@ import (
 const (
 	version = "0.1.0-dev"
 
-	maxValidTimestamp = int64(253402300800000000)
+	maxValidTimestamp = int64(253402300000000000)
 )
 
 // store implements the storage.Store interface using Bigtable.
