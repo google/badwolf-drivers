@@ -129,18 +129,28 @@ func GraphRowPrefix() string {
 	return graphRowPrefix
 }
 
+// correctTimestamp fixes the timestamp to the weird milli truncation
+// requirements.
+func correctTimestamp(ts int64) int64 {
+	if ts < 0 {
+		// Negative values are problematic.
+		ts = -ts
+	}
+	if ts < 1000000 {
+		// Micros get truncated, hence pushing all by 1 sec.
+		ts *= 1000000
+	}
+	return ts - (ts % 1000)
+}
+
 // CellTimestamp returns the timestamp to use for the cell.
 func CellTimestamp(t *triple.Triple) int64 {
 	if ta, err := t.Predicate().TimeAnchor(); err == nil && ta != nil {
-		return ta.UnixNano()
+		return correctTimestamp(ta.UnixNano())
 	}
 	h := sha256.Sum256([]byte(t.String()))
-	nsec, _ := binary.Varint(h[:])
-	if nsec < 1000000 {
-		nsec *= 1000000
-	}
-	nsec = nsec - (nsec % 1000) /* Micros get truncated, hence pushing all by 1 sec */
-	return nsec
+	nsec, _ := binary.Uvarint(h[:])
+	return correctTimestamp(int64(nsec))
 }
 
 // GraphColumnFamily returns the graph column family.
