@@ -37,6 +37,9 @@ const (
 	graphMetadataColumn         = "graph:metadata"
 	immutableTripleColumnFamily = "immutable_triple"
 	temporalTripleColumnFamily  = "temporal_triple"
+
+	// MaxValidTimestamp maximum cell timestamp.
+	MaxValidTimestamp = int64(253402300000000000)
 )
 
 var (
@@ -150,7 +153,7 @@ func CellTimestamp(t *triple.Triple) int64 {
 	}
 	h := sha256.Sum256([]byte(t.String()))
 	nsec, _ := binary.Uvarint(h[:])
-	return correctTimestamp(int64(nsec))
+	return correctTimestamp(int64(nsec) % MaxValidTimestamp)
 }
 
 // GraphColumnFamily returns the graph column family.
