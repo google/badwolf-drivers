@@ -342,7 +342,7 @@ func (g *graph) configurableRangeRead(ctx context.Context, rowPrefix, colPrefix 
 	}
 
 	timeAnchored := false
-	lb, ub := int64(0), int64(math.MaxInt64)
+	lb, ub := int64(-1), int64(math.MaxInt64)
 	if lo.LowerAnchor != nil {
 		lb = lo.LowerAnchor.UnixNano() / 1000
 		timeAnchored = true
@@ -351,12 +351,12 @@ func (g *graph) configurableRangeRead(ctx context.Context, rowPrefix, colPrefix 
 		ub = lo.UpperAnchor.UnixNano() / 1000
 		timeAnchored = true
 	}
+	lb, ub = keys.CorrectTimestamp(lb), keys.CorrectTimestamp(ub)
 	if timeAnchored {
 		opts = append(opts,
 			bigtable.RowFilter(
 				bigtable.TimestampRangeFilterMicros(bigtable.Timestamp(lb), bigtable.Timestamp(ub))))
 	}
-
 	cnt := 0
 	processRow := func(row bigtable.Row) bool {
 		for _, entries := range row {
