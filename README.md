@@ -141,3 +141,14 @@ Session started at 2018-07-11 13:00:55.172146282 -0700 PDT m=+0.937832480
 bql> 
 
 ```
+
+### Limitations of the GCP BT driver
+
+> Due to GCP BigTable cell timestamp management there are two issues to keep
+> in mind: (1) micros may be rounded up to micros (leading to possible
+> collisions), and (2) you may want to avoid using pre epoc time anchors since
+> due to cell timestamp management it may also lead to massive collisions. A
+> collisions is defined as to triples sharing the same timestamp in the same 
+> row. In practice this is not an issue for immutable predicates. For temporal
+> ones, you may want to keep in mind the epoch and milis rounding up when 
+> planning the time anchors for your triples.
