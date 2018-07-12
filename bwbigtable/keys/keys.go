@@ -149,7 +149,7 @@ func correctTimestamp(ts int64) int64 {
 // CellTimestamp returns the timestamp to use for the cell.
 func CellTimestamp(t *triple.Triple) int64 {
 	if ta, err := t.Predicate().TimeAnchor(); err == nil && ta != nil {
-		return correctTimestamp(ta.UnixNano())
+		return correctTimestamp(ta.UnixNano() / 1000) // To micros.
 	}
 	h := sha256.Sum256([]byte(t.String()))
 	nsec, _ := binary.Uvarint(h[:])

@@ -114,22 +114,22 @@ func TestForTriple(t *testing.T) {
 				{
 					Row:       "test:OSP:e5364b94-fe66-5b01-a526-5fdf1e028e80:2821fefc-a86e-597b-b187-58805cad8813:91b6c9d2-69e3-5cec-a465-d200f4872671",
 					Column:    "temporal_triple:SP",
-					Timestamp: 1506888000000000000,
+					Timestamp: 1506888000000000,
 				},
 				{
 					Row:       "test:POS:91b6c9d2-69e3-5cec-a465-d200f4872671:e5364b94-fe66-5b01-a526-5fdf1e028e80:2821fefc-a86e-597b-b187-58805cad8813",
 					Column:    "temporal_triple:OS",
-					Timestamp: 1506888000000000000,
+					Timestamp: 1506888000000000,
 				},
 				{
 					Row:       "test:SOP:2821fefc-a86e-597b-b187-58805cad8813:e5364b94-fe66-5b01-a526-5fdf1e028e80:91b6c9d2-69e3-5cec-a465-d200f4872671",
 					Column:    "temporal_triple:OP",
-					Timestamp: 1506888000000000000,
+					Timestamp: 1506888000000000,
 				},
 				{
 					Row:       "test:SPO:2821fefc-a86e-597b-b187-58805cad8813:91b6c9d2-69e3-5cec-a465-d200f4872671:e5364b94-fe66-5b01-a526-5fdf1e028e80",
 					Column:    "temporal_triple:PO",
-					Timestamp: 1506888000000000000,
+					Timestamp: 1506888000000000,
 				},
 			},
 		},
@@ -139,22 +139,22 @@ func TestForTriple(t *testing.T) {
 				{
 					Row:       "test:OSP:e5364b94-fe66-5b01-a526-5fdf1e028e80:2821fefc-a86e-597b-b187-58805cad8813:91b6c9d2-69e3-5cec-a465-d200f4872671",
 					Column:    "temporal_triple:SP",
-					Timestamp: 1513886400000000000,
+					Timestamp: 1513886400000000,
 				},
 				{
 					Row:       "test:POS:91b6c9d2-69e3-5cec-a465-d200f4872671:e5364b94-fe66-5b01-a526-5fdf1e028e80:2821fefc-a86e-597b-b187-58805cad8813",
 					Column:    "temporal_triple:OS",
-					Timestamp: 1513886400000000000,
+					Timestamp: 1513886400000000,
 				},
 				{
 					Row:       "test:SOP:2821fefc-a86e-597b-b187-58805cad8813:e5364b94-fe66-5b01-a526-5fdf1e028e80:91b6c9d2-69e3-5cec-a465-d200f4872671",
 					Column:    "temporal_triple:OP",
-					Timestamp: 1513886400000000000,
+					Timestamp: 1513886400000000,
 				},
 				{
 					Row:       "test:SPO:2821fefc-a86e-597b-b187-58805cad8813:91b6c9d2-69e3-5cec-a465-d200f4872671:e5364b94-fe66-5b01-a526-5fdf1e028e80",
 					Column:    "temporal_triple:PO",
-					Timestamp: 1513886400000000000,
+					Timestamp: 1513886400000000,
 				},
 			},
 		},
