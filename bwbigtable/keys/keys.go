@@ -135,6 +135,7 @@ func GraphRowPrefix() string {
 // correctTimestamp fixes the timestamp to the weird milli truncation
 // requirements.
 func correctTimestamp(ts int64) int64 {
+	ts = ts % MaxValidTimestamp
 	if ts < 0 {
 		// Negative values are problematic.
 		ts = -ts
@@ -153,7 +154,7 @@ func CellTimestamp(t *triple.Triple) int64 {
 	}
 	h := sha256.Sum256([]byte(t.String()))
 	nsec, _ := binary.Uvarint(h[:])
-	return correctTimestamp(int64(nsec) % MaxValidTimestamp)
+	return correctTimestamp(int64(nsec))
 }
 
 // GraphColumnFamily returns the graph column family.

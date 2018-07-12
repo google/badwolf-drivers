@@ -192,7 +192,7 @@ func TestNewGraphAndGraphAndDeleteGraph(t *testing.T) {
 }
 
 func getTestTriples(t *testing.T) []*triple.Triple {
-	var trpls []*triple.Triple
+	var ts []*triple.Triple
 
 	ss := []string{
 		"/some/type<some id>\t\"foo\"@[]\t/some/type<some id>",
@@ -215,14 +215,14 @@ func getTestTriples(t *testing.T) []*triple.Triple {
 		"/some/type<some other id>\t\"foo\"@[]\t\"[0 0 0]\"^^type:blob",
 	}
 	for _, s := range ss {
-		trpl, err := triple.Parse(s, literal.DefaultBuilder())
+		tr, err := triple.Parse(s, literal.DefaultBuilder())
 		if err != nil {
 			t.Fatalf("triple.Parse failed to parse valid test triple %s with error %v", s, err)
 		}
-		trpls = append(trpls, trpl)
+		ts = append(ts, tr)
 	}
 
-	return trpls
+	return ts
 }
 
 func TestAddTriplesAndRemoveTriplesAndTriples(t *testing.T) {
@@ -230,14 +230,14 @@ func TestAddTriplesAndRemoveTriplesAndTriples(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	// Add test triples and check existence.
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
@@ -252,12 +252,12 @@ func TestAddTriplesAndRemoveTriplesAndTriples(t *testing.T) {
 	for range tc {
 		got++
 	}
-	if want := len(trpls); got != want {
+	if want := len(ts); got != want {
 		t.Errorf("g.Triples(_) return the wrong number of triples; got %d, want %d", got, want)
 	}
 
 	// Remove triples and check they do not exist any longer.
-	if err := g.RemoveTriples(ctx, trpls); err != nil {
+	if err := g.RemoveTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 	tc = make(chan *triple.Triple)
@@ -284,14 +284,14 @@ func TestAddTriple(t *testing.T) {
 	ctx, graphName := context.Background(), "?test"
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	// Add test triples and check existence.
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
@@ -306,13 +306,13 @@ func TestAddTriple(t *testing.T) {
 	for range tc {
 		got++
 	}
-	if want := len(trpls); got != want {
+	if want := len(ts); got != want {
 		t.Errorf("g.Triples(_, _) returned the wrong number of triples; got %d, want %d", got, want)
 	}
 
 	// Check all the triples were returned correctly.
 	gm := make(map[string]bool)
-	for _, t := range trpls {
+	for _, t := range ts {
 		gm[t.UUID().String()] = true
 	}
 
@@ -345,18 +345,18 @@ func TestObjects(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
 	// Get all objects.
-	n, p, objs := trpls[0].Subject(), trpls[0].Predicate(), make(chan *triple.Object)
+	n, p, objs := ts[0].Subject(), ts[0].Predicate(), make(chan *triple.Object)
 	go func() {
 		if err := g.Objects(ctx, n, p, &storage.LookupOptions{}, objs); err != nil {
 			t.Error(err)
@@ -371,7 +371,7 @@ func TestObjects(t *testing.T) {
 	}
 
 	// Get only one object.
-	n, p, objs = trpls[0].Subject(), trpls[0].Predicate(), make(chan *triple.Object)
+	n, p, objs = ts[0].Subject(), ts[0].Predicate(), make(chan *triple.Object)
 	go func() {
 		if err := g.Objects(ctx, n, p, &storage.LookupOptions{MaxElements: 1}, objs); err != nil {
 			t.Error(err)
@@ -396,18 +396,18 @@ func TestSubjects(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
 	// Get all subjects.
-	p, o, subjs := trpls[0].Predicate(), trpls[0].Object(), make(chan *node.Node)
+	p, o, subjs := ts[0].Predicate(), ts[0].Object(), make(chan *node.Node)
 	go func() {
 		if err := g.Subjects(ctx, p, o, &storage.LookupOptions{}, subjs); err != nil {
 			t.Error(err)
@@ -422,7 +422,7 @@ func TestSubjects(t *testing.T) {
 	}
 
 	// Get only one object.
-	p, o, subjs = trpls[0].Predicate(), trpls[0].Object(), make(chan *node.Node)
+	p, o, subjs = ts[0].Predicate(), ts[0].Object(), make(chan *node.Node)
 	go func() {
 		if err := g.Subjects(ctx, p, o, &storage.LookupOptions{MaxElements: 1}, subjs); err != nil {
 			t.Error(err)
@@ -447,18 +447,18 @@ func TestPredicatesForSubjects(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
 	// Get all predicates for subject.
-	n, prds := trpls[0].Subject(), make(chan *predicate.Predicate)
+	n, prds := ts[0].Subject(), make(chan *predicate.Predicate)
 	go func() {
 		if err := g.PredicatesForSubject(ctx, n, &storage.LookupOptions{}, prds); err != nil {
 			t.Error(err)
@@ -473,7 +473,7 @@ func TestPredicatesForSubjects(t *testing.T) {
 	}
 
 	// Get only one predicate.
-	n, prds = trpls[0].Subject(), make(chan *predicate.Predicate)
+	n, prds = ts[0].Subject(), make(chan *predicate.Predicate)
 	go func() {
 		if err := g.PredicatesForSubject(ctx, n, &storage.LookupOptions{MaxElements: 1}, prds); err != nil {
 			t.Error(err)
@@ -498,18 +498,18 @@ func TestPredicatesForObject(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
 	// Get all predicates for object.
-	o, prds := trpls[0].Object(), make(chan *predicate.Predicate)
+	o, prds := ts[0].Object(), make(chan *predicate.Predicate)
 	go func() {
 		if err := g.PredicatesForObject(ctx, o, &storage.LookupOptions{}, prds); err != nil {
 			t.Error(err)
@@ -524,7 +524,7 @@ func TestPredicatesForObject(t *testing.T) {
 	}
 
 	// Get only one predicate.
-	o, prds = trpls[0].Object(), make(chan *predicate.Predicate)
+	o, prds = ts[0].Object(), make(chan *predicate.Predicate)
 	go func() {
 		if err := g.PredicatesForObject(ctx, o, &storage.LookupOptions{MaxElements: 1}, prds); err != nil {
 			t.Error(err)
@@ -549,18 +549,18 @@ func TestPredicatesForSubjectAndObjects(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
 	// Get all predicates for subject and object.
-	n, o, prds := trpls[0].Subject(), trpls[0].Object(), make(chan *predicate.Predicate)
+	n, o, prds := ts[0].Subject(), ts[0].Object(), make(chan *predicate.Predicate)
 	go func() {
 		if err := g.PredicatesForSubjectAndObject(ctx, n, o, &storage.LookupOptions{}, prds); err != nil {
 			t.Error(err)
@@ -575,7 +575,7 @@ func TestPredicatesForSubjectAndObjects(t *testing.T) {
 	}
 
 	// Get only one predicate.
-	n, o, prds = trpls[0].Subject(), trpls[0].Object(), make(chan *predicate.Predicate)
+	n, o, prds = ts[0].Subject(), ts[0].Object(), make(chan *predicate.Predicate)
 	go func() {
 		if err := g.PredicatesForSubjectAndObject(ctx, n, o, &storage.LookupOptions{MaxElements: 1}, prds); err != nil {
 			t.Error(err)
@@ -600,18 +600,18 @@ func TestTriplesForSubject(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
 	// Get all triples.
-	n, tc := trpls[0].Subject(), make(chan *triple.Triple)
+	n, tc := ts[0].Subject(), make(chan *triple.Triple)
 	go func() {
 		if err := g.TriplesForSubject(ctx, n, &storage.LookupOptions{}, tc); err != nil {
 			t.Error(err)
@@ -626,7 +626,7 @@ func TestTriplesForSubject(t *testing.T) {
 	}
 
 	// Get only one triple.
-	n, tc = trpls[0].Subject(), make(chan *triple.Triple)
+	n, tc = ts[0].Subject(), make(chan *triple.Triple)
 	go func() {
 		if err := g.TriplesForSubject(ctx, n, &storage.LookupOptions{MaxElements: 1}, tc); err != nil {
 			t.Error(err)
@@ -651,18 +651,18 @@ func TestTriplesForPredicate(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
 	// Get all triples.
-	p, tc := trpls[0].Predicate(), make(chan *triple.Triple)
+	p, tc := ts[0].Predicate(), make(chan *triple.Triple)
 	go func() {
 		if err := g.TriplesForPredicate(ctx, p, &storage.LookupOptions{}, tc); err != nil {
 			t.Error(err)
@@ -677,7 +677,7 @@ func TestTriplesForPredicate(t *testing.T) {
 	}
 
 	// Get only one triple.
-	p, tc = trpls[0].Predicate(), make(chan *triple.Triple)
+	p, tc = ts[0].Predicate(), make(chan *triple.Triple)
 	go func() {
 		if err := g.TriplesForPredicate(ctx, p, &storage.LookupOptions{MaxElements: 1}, tc); err != nil {
 			t.Error(err)
@@ -702,18 +702,18 @@ func TestTriplesForObject(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
 	// Get all triples.
-	o, tc := trpls[0].Object(), make(chan *triple.Triple)
+	o, tc := ts[0].Object(), make(chan *triple.Triple)
 	go func() {
 		if err := g.TriplesForObject(ctx, o, &storage.LookupOptions{}, tc); err != nil {
 			t.Error(err)
@@ -728,7 +728,7 @@ func TestTriplesForObject(t *testing.T) {
 	}
 
 	// Get only one triple.
-	o, tc = trpls[0].Object(), make(chan *triple.Triple)
+	o, tc = ts[0].Object(), make(chan *triple.Triple)
 	go func() {
 		if err := g.TriplesForObject(ctx, o, &storage.LookupOptions{MaxElements: 1}, tc); err != nil {
 			t.Error(err)
@@ -753,18 +753,18 @@ func TestTriplesForSubjectAndPredicate(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
 	// Get all triples.
-	n, p, tc := trpls[0].Subject(), trpls[0].Predicate(), make(chan *triple.Triple)
+	n, p, tc := ts[0].Subject(), ts[0].Predicate(), make(chan *triple.Triple)
 	go func() {
 		if err := g.TriplesForSubjectAndPredicate(ctx, n, p, &storage.LookupOptions{}, tc); err != nil {
 			t.Error(err)
@@ -779,7 +779,7 @@ func TestTriplesForSubjectAndPredicate(t *testing.T) {
 	}
 
 	// Get only one triple.
-	n, p, tc = trpls[0].Subject(), trpls[0].Predicate(), make(chan *triple.Triple)
+	n, p, tc = ts[0].Subject(), ts[0].Predicate(), make(chan *triple.Triple)
 	go func() {
 		if err := g.TriplesForSubjectAndPredicate(ctx, n, p, &storage.LookupOptions{MaxElements: 1}, tc); err != nil {
 			t.Error(err)
@@ -804,18 +804,18 @@ func TestTriplesForPredicateAndObject(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls); err != nil {
+	if err := g.AddTriples(ctx, ts); err != nil {
 		t.Error(err)
 	}
 
 	// Get all triples.
-	p, o, tc := trpls[0].Predicate(), trpls[0].Object(), make(chan *triple.Triple)
+	p, o, tc := ts[0].Predicate(), ts[0].Object(), make(chan *triple.Triple)
 	go func() {
 		if err := g.TriplesForPredicateAndObject(ctx, p, o, &storage.LookupOptions{}, tc); err != nil {
 			t.Error(err)
@@ -830,7 +830,7 @@ func TestTriplesForPredicateAndObject(t *testing.T) {
 	}
 
 	// Get only one triple.
-	p, o, tc = trpls[0].Predicate(), trpls[0].Object(), make(chan *triple.Triple)
+	p, o, tc = ts[0].Predicate(), ts[0].Object(), make(chan *triple.Triple)
 	go func() {
 		if err := g.TriplesForPredicateAndObject(ctx, p, o, &storage.LookupOptions{MaxElements: 1}, tc); err != nil {
 			t.Error(err)
@@ -855,18 +855,18 @@ func TestExist(t *testing.T) {
 	s, clean := emptyTestStore(ctx, t)
 	defer clean()
 
-	trpls := getTestTriples(t)
+	ts := getTestTriples(t)
 
 	g, err := s.NewGraph(ctx, graphName)
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.AddTriples(ctx, trpls[1:]); err != nil {
+	if err := g.AddTriples(ctx, ts[1:]); err != nil {
 		t.Error(err)
 	}
 
 	// Check all triples exist.
-	for _, trpl := range trpls[1:] {
+	for _, trpl := range ts[1:] {
 		found, err := g.Exist(ctx, trpl)
 		if err != nil {
 			t.Error(err)
@@ -877,12 +877,12 @@ func TestExist(t *testing.T) {
 	}
 
 	// Check leave-one-out triple does not exist.
-	found, err := g.Exist(ctx, trpls[0])
+	found, err := g.Exist(ctx, ts[0])
 	if err != nil {
 		t.Error(err)
 	}
 	if found {
-		t.Errorf("g.Exist(_,_) should have not found triple %v", trpls[0])
+		t.Errorf("g.Exist(_,_) should have not found triple %v", ts[0])
 	}
 
 	// Get rid of the test graph.
