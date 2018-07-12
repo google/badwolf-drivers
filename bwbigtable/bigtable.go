@@ -36,6 +36,8 @@ import (
 
 const (
 	version = "0.1.0-dev"
+
+	maxValidTimestamp = int64(253402300800000000)
 )
 
 // store implements the storage.Store interface using Bigtable.
@@ -179,7 +181,7 @@ func (s *store) DeleteGraph(ctx context.Context, id string) error {
 	return s.deleteCellRange(
 		ctx, k.Row, k.Column,
 		1000000, /* truncates to millis!? */
-		math.MaxInt64-math.MaxInt64%1000 /* interpreted as infinity*/)
+		maxValidTimestamp /* interpreted as infinity*/)
 }
 
 // deleteCellRange delete a cell on the big table.
