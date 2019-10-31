@@ -61,7 +61,7 @@ You may always want to run all the test for both repos `badwolf` and
 should consider not using the build tool since it may be tainted.
 
 ```
-$ go test -race github.com/google/badwolf/... github.com/xllora/bwdrivers/...
+$ go test -race github.com/google/badwolf/... github.com/google/badwolf-drivers/...
 ok  	github.com/google/badwolf/bql/grammar	1.175s
 ok  	github.com/google/badwolf/bql/lexer	1.045s
 ok  	github.com/google/badwolf/bql/planner	1.531s
