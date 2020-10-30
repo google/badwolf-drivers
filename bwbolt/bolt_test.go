@@ -21,15 +21,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boltdb/bolt"
 	"github.com/google/badwolf/storage"
 	"github.com/google/badwolf/triple"
 	"github.com/google/badwolf/triple/literal"
 	"github.com/google/badwolf/triple/node"
 	"github.com/google/badwolf/triple/predicate"
+	"go.etcd.io/bbolt"
 )
 
-func testDriver(t *testing.T) (storage.Store, *bolt.DB) {
+func testDriver(t *testing.T) (storage.Store, *bbolt.DB) {
 	path := path.Join(os.TempDir(), fmt.Sprintf("%x-%x.bdb", time.Now().UnixNano(), rand.Int()))
 	d, db, err := New(path, literal.DefaultBuilder(), 3*time.Second, false)
 	if err != nil {

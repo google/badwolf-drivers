@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boltdb/bolt"
 	"github.com/google/badwolf-drivers/bwbolt"
 	"github.com/google/badwolf/storage"
 	"github.com/google/badwolf/storage/memory"
@@ -31,6 +30,7 @@ import (
 	"github.com/google/badwolf/tools/vcli/bw/repl"
 	"github.com/google/badwolf/triple/literal"
 	"github.com/peterh/liner"
+	"go.etcd.io/bbolt"
 )
 
 var (
@@ -52,7 +52,7 @@ var (
 	boltReadOnly = flag.Bool("bolt_db_read_only", false, "Use te Bolt DB only in read only mode.")
 
 	// Driver specific variables.
-	db *bolt.DB
+	db *bbolt.DB
 )
 
 // Registers the available drivers.
