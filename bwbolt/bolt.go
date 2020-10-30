@@ -21,18 +21,18 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/boltdb/bolt"
 	"github.com/google/badwolf/storage"
 	"github.com/google/badwolf/triple"
 	"github.com/google/badwolf/triple/literal"
 	"github.com/google/badwolf/triple/node"
 	"github.com/google/badwolf/triple/predicate"
+	"go.etcd.io/bbolt"
 )
 
 // driver implements BadWolf storage.Store for a fully compliant driver.
 type driver struct {
 	path string
-	db   *bolt.DB
+	db   *bbolt.DB
 	lb   literal.Builder
 }
 
@@ -40,19 +40,19 @@ type driver struct {
 const graphBucket = "GRAPHS"
 
 // New create a new BadWolf driver using BoltDB as a storage driver.
-func New(path string, lb literal.Builder, timeOut time.Duration, readOnly bool) (storage.Store, *bolt.DB, error) {
+func New(path string, lb literal.Builder, timeOut time.Duration, readOnly bool) (storage.Store, *bbolt.DB, error) {
 	// Bolt open options.
-	opts := &bolt.Options{
+	opts := &bbolt.Options{
 		Timeout:  timeOut,
 		ReadOnly: readOnly,
 	}
 	// Open the DB.
-	db, err := bolt.Open(path, 0600, opts)
+	db, err := bbolt.Open(path, 0600, opts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("bwbolt driver initialization failure for file %q %v", path, err)
 	}
 	// Create the graph bucket if it does not exist.
-	db.Update(func(tx *bolt.Tx) error {
+	db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(graphBucket))
 		if err != nil {
 			return fmt.Errorf("driver initialization failed to create bucket %s for path %s with error %v", graphBucket, path, err)
@@ -80,7 +80,7 @@ func (d *driver) Version(ctx context.Context) string {
 // NewGraph creates a new graph. Creating an already existing graph
 // should return an error.
 func (d *driver) NewGraph(ctx context.Context, id string) (storage.Graph, error) {
-	err := d.db.Update(func(tx *bolt.Tx) error {
+	err := d.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -104,7 +104,7 @@ func (d *driver) NewGraph(ctx context.Context, id string) (storage.Graph, error)
 // Graph returns an existing graph if available. Getting a non existing
 // graph should return an error.
 func (d *driver) Graph(ctx context.Context, id string) (storage.Graph, error) {
-	err := d.db.View(func(tx *bolt.Tx) error {
+	err := d.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -128,7 +128,7 @@ func (d *driver) Graph(ctx context.Context, id string) (storage.Graph, error) {
 // DeleteGraph deletes an existing graph. Deleting a non existing graph
 // should return an error.
 func (d *driver) DeleteGraph(ctx context.Context, id string) error {
-	return d.db.Update(func(tx *bolt.Tx) error {
+	return d.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -144,7 +144,7 @@ func (d *driver) DeleteGraph(ctx context.Context, id string) error {
 // GraphNames returns the current available graph names in the store.
 func (d *driver) GraphNames(ctx context.Context, names chan<- string) error {
 	defer close(names)
-	return d.db.View(func(tx *bolt.Tx) error {
+	return d.db.View(func(tx *bbolt.Tx) error {
 		// Assume bucket exists and has keys
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
@@ -161,7 +161,7 @@ func (d *driver) GraphNames(ctx context.Context, names chan<- string) error {
 // graph implements BadWolf storage.Graph for a fully compliant driver.
 type graph struct {
 	id string
-	db *bolt.DB
+	db *bbolt.DB
 	lb literal.Builder
 }
 
@@ -267,7 +267,7 @@ func (g *graph) tripleToIndexUpdate(t *triple.Triple) []*indexUpdate {
 // The GUID index containst the fully serialized triple. The other indices
 // only contains as a value the GUID of the triple.
 func (g *graph) AddTriples(ctx context.Context, ts []*triple.Triple) error {
-	return g.db.Update(func(tx *bolt.Tx) error {
+	return g.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -295,7 +295,7 @@ func (g *graph) AddTriples(ctx context.Context, ts []*triple.Triple) error {
 // RemoveTriples removes the trilpes from the storage. Removing triples that
 // are not present on the store should not fail.
 func (g *graph) RemoveTriples(ctx context.Context, ts []*triple.Triple) error {
-	return g.db.Update(func(tx *bolt.Tx) error {
+	return g.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -356,7 +356,7 @@ func (g *graph) shouldAccept(cnt int, t *triple.Triple, lo *storage.LookupOption
 // to satisfy elements in the channel.
 func (g *graph) Objects(ctx context.Context, s *node.Node, p *predicate.Predicate, lo *storage.LookupOptions, objs chan<- *triple.Object) error {
 	defer close(objs)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -392,7 +392,7 @@ func (g *graph) Objects(ctx context.Context, s *node.Node, p *predicate.Predicat
 // goroutine to satisfy elements in the channel.
 func (g *graph) Subjects(ctx context.Context, p *predicate.Predicate, o *triple.Object, lo *storage.LookupOptions, subs chan<- *node.Node) error {
 	defer close(subs)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -428,7 +428,7 @@ func (g *graph) Subjects(ctx context.Context, p *predicate.Predicate, o *triple.
 // spawns a goroutine to satisfy elements in the channel.
 func (g *graph) PredicatesForSubject(ctx context.Context, s *node.Node, lo *storage.LookupOptions, prds chan<- *predicate.Predicate) error {
 	defer close(prds)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -464,7 +464,7 @@ func (g *graph) PredicatesForSubject(ctx context.Context, s *node.Node, lo *stor
 // routine to satisfy elements in the channel.
 func (g *graph) PredicatesForObject(ctx context.Context, o *triple.Object, lo *storage.LookupOptions, prds chan<- *predicate.Predicate) error {
 	defer close(prds)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -500,7 +500,7 @@ func (g *graph) PredicatesForObject(ctx context.Context, o *triple.Object, lo *s
 // immediately but spawns a goroutine to satisfy elements in the channel.
 func (g *graph) PredicatesForSubjectAndObject(ctx context.Context, s *node.Node, o *triple.Object, lo *storage.LookupOptions, prds chan<- *predicate.Predicate) error {
 	defer close(prds)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -536,7 +536,7 @@ func (g *graph) PredicatesForSubjectAndObject(ctx context.Context, s *node.Node,
 // goroutine to satisfy elements in the channel.
 func (g *graph) TriplesForSubject(ctx context.Context, s *node.Node, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
 	defer close(trpls)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -572,7 +572,7 @@ func (g *graph) TriplesForSubject(ctx context.Context, s *node.Node, lo *storage
 // a goroutine to satisfy elements in the channel.
 func (g *graph) TriplesForPredicate(ctx context.Context, p *predicate.Predicate, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
 	defer close(trpls)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -608,7 +608,7 @@ func (g *graph) TriplesForPredicate(ctx context.Context, p *predicate.Predicate,
 // goroutine to satisfy elements in the channel.
 func (g *graph) TriplesForObject(ctx context.Context, o *triple.Object, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
 	defer close(trpls)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -644,7 +644,7 @@ func (g *graph) TriplesForObject(ctx context.Context, o *triple.Object, lo *stor
 // immediately but spawns a goroutine to satisfy elements in the channel.
 func (g *graph) TriplesForSubjectAndPredicate(ctx context.Context, s *node.Node, p *predicate.Predicate, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
 	defer close(trpls)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -680,7 +680,7 @@ func (g *graph) TriplesForSubjectAndPredicate(ctx context.Context, s *node.Node,
 // immediately but spawns a goroutine to satisfy elements in the channel.
 func (g *graph) TriplesForPredicateAndObject(ctx context.Context, p *predicate.Predicate, o *triple.Object, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
 	defer close(trpls)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -715,7 +715,7 @@ func (g *graph) TriplesForPredicateAndObject(ctx context.Context, p *predicate.P
 func (g *graph) Exist(ctx context.Context, t *triple.Triple) (bool, error) {
 	res := false
 
-	err := g.db.View(func(tx *bolt.Tx) error {
+	err := g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
@@ -742,7 +742,7 @@ func (g *graph) Exist(ctx context.Context, t *triple.Triple) (bool, error) {
 // elements in the channel.
 func (g *graph) Triples(ctx context.Context, lo *storage.LookupOptions, trpls chan<- *triple.Triple) error {
 	defer close(trpls)
-	return g.db.View(func(tx *bolt.Tx) error {
+	return g.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(graphBucket))
 		if b == nil {
 			return fmt.Errorf("inconsistent driver failed to retrieve top bucket %q", graphBucket)
