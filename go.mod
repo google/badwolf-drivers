@@ -1,6 +1,6 @@
 module github.com/google/badwolf-drivers
 
-go 1.24.3
+go 1.24
 
 require (
 	github.com/google/badwolf v0.9.1-0.20201026105356-73451a945c65
