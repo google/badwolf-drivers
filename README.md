@@ -1,6 +1,9 @@
 # BadWolf Drivers
 
-[![Build Status](https://travis-ci.org/google/badwolf-drivers.svg?branch=master)](https://travis-ci.org/google/badwolf-drivers) [![Go Report Card](https://goreportcard.com/badge/github.com/google/badwolf-drivers)](https://goreportcard.com/report/github.com/google/badwolf-drivers) [![GoDoc](https://godoc.org/github.com/google/badwolf-drivers?status.svg)](https://godoc.org/github.com/google/badwolf-drivers)
+[![Test Status](https://github.com/google/badwolf/workflows/tests/badge.svg)](https://github.com/google/badwolf-drivers/actions?query=workflow%3Atests)
+[![Build Status](https://travis-ci.org/google/badwolf-drivers.svg?branch=master)](https://travis-ci.org/google/badwolf-drivers) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/google/badwolf-drivers)](https://goreportcard.com/report/github.com/google/badwolf-drivers)
+[![GoDoc](https://godoc.org/github.com/google/badwolf-drivers?status.svg)](https://godoc.org/github.com/google/badwolf-drivers)
 
 
 BadWolf is a temporal graph store loosely modeled after the concepts introduced
