@@ -259,10 +259,10 @@ func (g *graph) tripleToIndexUpdate(t *triple.Triple) []*indexUpdate {
 // exists should not fail. Efficiently resolving all the operations below
 // require proper indexing. This driver provides the follow indices:
 //
-//   * SPO: Textual representation of the triple to allow range queries.
-//   * SOP: Conbination to allow efficient query of S + P queries.
-//   * POS: Conbination to allow efficient query of P + O queries.
-//   * OPS: Conbination to allow efficient query of O + P queries.
+//   - SPO: Textual representation of the triple to allow range queries.
+//   - SOP: Conbination to allow efficient query of S + P queries.
+//   - POS: Conbination to allow efficient query of P + O queries.
+//   - OPS: Conbination to allow efficient query of O + P queries.
 //
 // The GUID index containst the fully serialized triple. The other indices
 // only contains as a value the GUID of the triple.
