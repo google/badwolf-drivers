@@ -79,7 +79,7 @@ func createTriples(t *testing.T, ss []string) []*triple.Triple {
 	for _, s := range ss {
 		trpl, err := triple.Parse(s, literal.DefaultBuilder())
 		if err != nil {
-			t.Fatalf("triple.Parse failed to parse valid triple %s with error %v", s, err)
+			t.Errorf("triple.Parse failed to parse valid triple %s with error %v", s, err)
 			continue
 		}
 		ts = append(ts, trpl)
@@ -105,7 +105,7 @@ func TestAddRemoveExistTriples(t *testing.T) {
 
 	g, err := s.NewGraph(ctx, "test")
 	if err != nil {
-		t.Fatalf("store.New failed to create test graph with error %v", err)
+		t.Errorf("store.New failed to create test graph with error %v", err)
 	}
 
 	err = g.AddTriples(ctx, trpls)
@@ -125,7 +125,7 @@ func TestAddRemoveExistTriples(t *testing.T) {
 	go func() {
 		err := g.Triples(ctx, storage.DefaultLookup, tc)
 		if err != nil {
-			t.Fatalf("graph.Triples failed ot retrieve triples from test graph with error %v", err)
+			t.Errorf("graph.Triples failed ot retrieve triples from test graph with error %v", err)
 		}
 	}()
 	cnt := 0
@@ -153,7 +153,7 @@ func TestAddRemoveExistTriples(t *testing.T) {
 	go func() {
 		err := g.Triples(ctx, storage.DefaultLookup, tc)
 		if err != nil {
-			t.Fatalf("graph.Triples failed ot retrieve non existent triples from test graph with error %v", err)
+			t.Errorf("graph.Triples failed ot retrieve non existent triples from test graph with error %v", err)
 		}
 	}()
 	cnt = 0
@@ -183,7 +183,7 @@ func TestQueryMethods(t *testing.T) {
 
 	g, err := st.NewGraph(ctx, "test")
 	if err != nil {
-		t.Fatalf("store.New failed to create test graph with error %v", err)
+		t.Errorf("store.New failed to create test graph with error %v", err)
 	}
 
 	err = g.AddTriples(ctx, trpls)
@@ -229,7 +229,7 @@ func TestQueryMethods(t *testing.T) {
 		go func() {
 			err := g.Objects(ctx, s, p, &opts, objs)
 			if err != nil {
-				t.Fatalf("graph.Objects(%q, %q) failed with %v", s, p, err)
+				t.Errorf("graph.Objects(%q, %q) failed with %v", s, p, err)
 			}
 		}()
 		cnt = 0
@@ -245,7 +245,7 @@ func TestQueryMethods(t *testing.T) {
 		go func() {
 			err := g.Subjects(ctx, p, o, &opts, subjs)
 			if err != nil {
-				t.Fatalf("graph.Subjects(%q, %q) failed with %v", p, o, err)
+				t.Errorf("graph.Subjects(%q, %q) failed with %v", p, o, err)
 			}
 		}()
 		cnt = 0
@@ -261,7 +261,7 @@ func TestQueryMethods(t *testing.T) {
 		go func() {
 			err := g.PredicatesForSubject(ctx, s, &opts, prds)
 			if err != nil {
-				t.Fatalf("graph.PredicatesForSubject(_, %q, _, _) failed with %v", s, err)
+				t.Errorf("graph.PredicatesForSubject(_, %q, _, _) failed with %v", s, err)
 			}
 		}()
 		cnt = 0
@@ -277,7 +277,7 @@ func TestQueryMethods(t *testing.T) {
 		go func() {
 			err := g.PredicatesForObject(ctx, o, &opts, prds)
 			if err != nil {
-				t.Fatalf("graph.PredicatesForObject(_, %q, _, _) failed with %v", o, err)
+				t.Errorf("graph.PredicatesForObject(_, %q, _, _) failed with %v", o, err)
 			}
 		}()
 		cnt = 0
@@ -293,7 +293,7 @@ func TestQueryMethods(t *testing.T) {
 		go func() {
 			err := g.PredicatesForSubjectAndObject(ctx, s, o, &opts, prds)
 			if err != nil {
-				t.Fatalf("graph.PredicatesForSubjecAndObject(_, %q, %q, _, _) failed with %v", s, o, err)
+				t.Errorf("graph.PredicatesForSubjecAndObject(_, %q, %q, _, _) failed with %v", s, o, err)
 			}
 		}()
 		cnt = 0
@@ -309,7 +309,7 @@ func TestQueryMethods(t *testing.T) {
 		go func() {
 			err := g.TriplesForSubject(ctx, s, &opts, ctrpls)
 			if err != nil {
-				t.Fatalf("graph.TriplesForSubject(_, %q, _, _) failed with %v", s, err)
+				t.Errorf("graph.TriplesForSubject(_, %q, _, _) failed with %v", s, err)
 			}
 		}()
 		cnt = 0
@@ -325,7 +325,7 @@ func TestQueryMethods(t *testing.T) {
 		go func() {
 			err := g.TriplesForPredicate(ctx, p, &opts, ctrpls)
 			if err != nil {
-				t.Fatalf("graph.TriplesForPredicate(_, %q, _, _) failed with %v", p, err)
+				t.Errorf("graph.TriplesForPredicate(_, %q, _, _) failed with %v", p, err)
 			}
 		}()
 		cnt = 0
@@ -341,7 +341,7 @@ func TestQueryMethods(t *testing.T) {
 		go func() {
 			err := g.TriplesForSubjectAndPredicate(ctx, s, p, &opts, ctrpls)
 			if err != nil {
-				t.Fatalf("graph.TriplesForSubjectAndPredicate(_, %q, %q, _, _) failed with %v", s, p, err)
+				t.Errorf("graph.TriplesForSubjectAndPredicate(_, %q, %q, _, _) failed with %v", s, p, err)
 			}
 		}()
 		cnt = 0
@@ -357,7 +357,7 @@ func TestQueryMethods(t *testing.T) {
 		go func() {
 			err := g.TriplesForPredicateAndObject(ctx, p, o, &opts, ctrpls)
 			if err != nil {
-				t.Fatalf("graph.TriplesForPredicateAndObject(_, %q, %q, _, _) failed with %v", p, o, err)
+				t.Errorf("graph.TriplesForPredicateAndObject(_, %q, %q, _, _) failed with %v", p, o, err)
 			}
 		}()
 		cnt = 0
@@ -377,7 +377,7 @@ func TestTriplesForObject(t *testing.T) {
 
 	g, err := st.NewGraph(ctx, "test")
 	if err != nil {
-		t.Fatalf("store.New failed to create test graph with error %v", err)
+		t.Errorf("store.New failed to create test graph with error %v", err)
 	}
 
 	err = g.AddTriples(ctx, trpls)
@@ -392,7 +392,7 @@ func TestTriplesForObject(t *testing.T) {
 		go func() {
 			err := g.TriplesForObject(ctx, tr.Object(), opts, trps)
 			if err != nil {
-				t.Fatalf("graph.PredicatesForObject(_, %q, _, _) failed with %v", tr.Object(), err)
+				t.Errorf("graph.PredicatesForObject(_, %q, _, _) failed with %v", tr.Object(), err)
 			}
 		}()
 		cnt := 0
